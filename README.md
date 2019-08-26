@@ -17,7 +17,15 @@ flutter packages get
 
 to install the project dependencies. This must be run again if the dependencies ever change.
 
-Then you can run the app locally by first starting an Android emulator or iOS simulator and then
+Then run:
+
+```
+flutter packages pub run build_runner build
+```
+
+to generate generated code.
+
+Now you can run the app locally by first starting an Android emulator or iOS simulator and then
 invoking:
 
 ```
@@ -29,8 +37,8 @@ See the Flutter dev docs for more info on building, hot reloading, etc.
 The app also uses [MobX] for Dart/Flutter. It is useful to read the [MobX getting started]
 instructions to familiarize yourself with its moving parts.
 
-Specifically, if one updates the annotated MobX store classes, it is necessary to update the
-generated code by running:
+If one updates the annotated MobX store classes, it is necessary to update the generated code by
+running:
 
 ```
 flutter packages pub run build_runner build
