@@ -1,57 +1,80 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_mobx/flutter_mobx.dart';
+// import 'package:flutter_mobx/flutter_mobx.dart';
 
-import 'counter.dart';
+import 'fake.dart';
+import 'chat_tab.dart';
+import 'feed_tab.dart';
+import 'games_tab.dart';
 
-final counter = Counter();
+var profiles = fakeProfilesStore();
+var channels = fakeChannelsStore();
 
-void main() => runApp(MyApp());
+void main () => runApp(ChatApp());
 
-class MyApp extends StatelessWidget {
+class ChatApp extends StatelessWidget {
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext ctx) {
     return MaterialApp(
       title: 'tfw chat',
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const MyHomePage(title: 'tfw chat'),
+      // TEMP: use a scaffold so we can show snackbars
+      home: Scaffold(
+        body: const ChatShell()
+      ),
     );
   }
 }
 
-class MyHomePage extends StatelessWidget {
-  const MyHomePage({this.title});
-
-  final String title;
+class ChatShell extends StatelessWidget {
+  const ChatShell();
 
   @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
+  Widget build(BuildContext ctx) {
+    return CupertinoTabScaffold(
+      tabBar: CupertinoTabBar(
+        items: [
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.conversation_bubble),
+            title: Text('Chat'),
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.home),
+            title: Text('Feed'),
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(CupertinoIcons.profile_circled),
+            title: Text('Games'),
+          ),
+        ],
       ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            Text(
-              'You have frobbed the knob this many times:',
-            ),
-            Observer(
-              builder: (_) => Text(
-                '${counter.value}',
-                style: Theme.of(context).textTheme.display1,
-              ),
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: counter.increment,
-        tooltip: 'Increment',
-        child: Icon(Icons.add),
-      ),
+      tabBuilder: (ctx, int index) {
+        assert(index >= 0 && index <= 2);
+        switch (index) {
+          case 0:
+            return CupertinoTabView(
+              builder: (ctx) => ChatTab(profiles, channels),
+              defaultTitle: 'Chat',
+            );
+            break;
+          case 1:
+            return CupertinoTabView(
+              builder: (ctx) => FeedTab(profiles, channels),
+              defaultTitle: 'Feed',
+            );
+            break;
+          case 2:
+            return CupertinoTabView(
+              builder: (ctx) => GamesTab(profiles, channels),
+              defaultTitle: 'Games',
+            );
+            break;
+        }
+        return null;
+      },
     );
   }
 }

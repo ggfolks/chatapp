@@ -3,10 +3,16 @@ import 'data.dart';
 
 part 'stores.g.dart';
 
-class ProfileStore = _ProfileStore with _$ProfileStore;
-abstract class _ProfileStore with Store {
+class ProfilesStore = _ProfilesStore with _$ProfilesStore;
+abstract class _ProfilesStore with Store {
 
   ObservableMap<String, Profile> profiles = ObservableMap();
+
+  /// Returns the name of the specified entity, or `?` if the entity is unknown.
+  String name (String uuid) => profiles[uuid]?.name ?? unknownPerson.name;
+
+  /// Compares two profiled entities by their profile names.
+  int compareNames (Profiled a, Profiled b) => name(a.profileId).compareTo(name(b.profileId));
 
   // DO: actions to request that profiles be resolveed
 }
@@ -29,4 +35,13 @@ abstract class _GamesStore with Store {
 
   /// Status of a small number of games we think this player might like.
   ObservableMap<String, GameStatus> discover = ObservableMap();
+}
+
+class ChannelStore = _ChannelStore with _$ChannelStore;
+abstract class _ChannelStore with Store {
+  _ChannelStore ([this.profile]);
+
+  final Profile profile;
+
+  ObservableMap<String, Message> messages = ObservableMap();
 }
