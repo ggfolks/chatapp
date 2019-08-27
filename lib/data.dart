@@ -26,21 +26,21 @@ final unknownPerson = Profile(
   (b) => b..uuid = ""
           ..type = ProfileType.person
           ..name = "?"
-          ..photo = "" // DO: photo for unknown person
+          ..photo = "" // TODO: photo for unknown person
 );
 
 final unknownGame = Profile(
   (b) => b..uuid = ""
           ..type = ProfileType.game
           ..name = "?"
-          ..photo = "" // DO: photo for unknown game
+          ..photo = "" // TODO: photo for unknown game
 );
 
 final unknownChannel = Profile(
   (b) => b..uuid = ""
           ..type = ProfileType.channel
           ..name = "?"
-          ..photo = "" // DO: photo for unknown channel
+          ..photo = "" // TODO: photo for unknown channel
 );
 
 abstract class ChannelStatus implements Profiled, Built<ChannelStatus, ChannelStatusBuilder> {
@@ -55,7 +55,7 @@ abstract class ChannelStatus implements Profiled, Built<ChannelStatus, ChannelSt
   ChannelStatus._();
 }
 
-// DO: should this just be channel status? with extra stuff? can we extend Built classes?
+// TODO: should this just be channel status? with extra stuff? can we extend Built classes?
 abstract class GameStatus implements Profiled, Built<GameStatus, GameStatusBuilder> {
 
   String get uuid;

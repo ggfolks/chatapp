@@ -10,13 +10,13 @@ import 'channel_page.dart';
 Widget statusView (BuildContext ctx, String photo, String name, String text, DateTime time) {
   return Container(
     padding: const EdgeInsets.all(8),
-    // DO: fixed height
+    // TODO: fixed height
     child: Row(children: <Widget>[
-      Icon(CupertinoIcons.conversation_bubble), // DO: proper photo
+      Icon(CupertinoIcons.conversation_bubble), // TODO: proper photo
       Container(
         padding: const EdgeInsets.only(left: 5),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
-          // DO: display time in upper right?
+          // TODO: display time in upper right?
           Container(
             padding: const EdgeInsets.only(bottom: 5),
             child: Text(name)
@@ -41,7 +41,7 @@ class ChatTab extends StatelessWidget {
       textAlign: TextAlign.left,
       child: Observer(
         builder: (_) {
-          // DO: if channel data is not yet available, show a loading indicator?
+          // TODO: if channel data is not yet available, show a loading indicator?
           List<ChannelStatus> chanstats =
             List.from(channels.channels.values)..sort(profiles.compareNames);
           List<ChannelStatus> privstats =
@@ -66,7 +66,7 @@ class ChatTab extends StatelessWidget {
                     Navigator.of(ctx).push(
                       CupertinoPageRoute<void>(
                         title: p.name,
-                        builder: (ctx) => ChannelPage(channelStore(p))
+                        builder: (ctx) => ChannelPage(profiles, channelStore(p))
                       )
                     );
                   },

@@ -14,7 +14,7 @@ abstract class _ProfilesStore with Store {
   /// Compares two profiled entities by their profile names.
   int compareNames (Profiled a, Profiled b) => name(a.profileId).compareTo(name(b.profileId));
 
-  // DO: actions to request that profiles be resolveed
+  // TODO: actions to request that profiles be resolveed
 }
 
 class ChannelsStore = _ChannelsStore with _$ChannelsStore;
