@@ -26,15 +26,6 @@ var pinball = Profile(
           ..name = "Pinball Wizards"
           ..photo = "https://api.adorable.io/avatars/128/pinballwizards.png");
 
-ProfilesStore fakeProfilesStore () {
-  var store = ProfilesStore();
-  store.profiles[testy.uuid] = testy;
-  store.profiles[elvis.uuid] = elvis;
-  store.profiles[rancho.uuid] = rancho;
-  store.profiles[pinball.uuid] = pinball;
-  return store;
-}
-
 var testyElvisChat = [
   Message(
     (b) => b..uuid = Uuid.generateV4()
@@ -72,6 +63,37 @@ var testyElvisChat = [
             ..authorId = elvis.uuid
             ..text = "🙄"
             ..sentTime = DateTime(2019, 8, 28, 8, 24)),
+
+  Message(
+    (b) => b..uuid = Uuid.generateV4()
+            ..authorId = testy.uuid
+            ..text = "More messages to give us something to scroll!"
+            ..sentTime = DateTime(2019, 8, 28, 9, 12)),
+  Message(
+    (b) => b..uuid = Uuid.generateV4()
+            ..authorId = testy.uuid
+            ..text = "We love to scroll."
+            ..sentTime = DateTime(2019, 8, 28, 9, 13)),
+  Message(
+    (b) => b..uuid = Uuid.generateV4()
+            ..authorId = elvis.uuid
+            ..text = "Speak for yourself. I prefer to pan."
+            ..sentTime = DateTime(2019, 8, 28, 9, 25)),
+  Message(
+    (b) => b..uuid = Uuid.generateV4()
+            ..authorId = testy.uuid
+            ..text = "Would you say you're something of a pan man?"
+            ..sentTime = DateTime(2019, 8, 28, 9, 29)),
+  Message(
+    (b) => b..uuid = Uuid.generateV4()
+            ..authorId = elvis.uuid
+            ..text = "I like to pan pan when I can can."
+            ..sentTime = DateTime(2019, 8, 28, 9, 32)),
+  Message(
+    (b) => b..uuid = Uuid.generateV4()
+            ..authorId = testy.uuid
+            ..text = "I has lols."
+            ..sentTime = DateTime(2019, 8, 28, 9, 33)),
 ];
 
 var ranchoChat = [
@@ -130,31 +152,30 @@ var pinballChat = [
             ..sentTime = DateTime(2019, 8, 26, 10, 24)),
 ];
 
-ChannelStatus fakeStatus (String uuid, List<Message> messages) {
-  return ChannelStatus(
-    (b) => b..uuid = uuid
-            ..latestMessage = messages.last.text
-            ..latestMessageTime = messages.last.sentTime
-  );
-}
-
-ChannelsStore fakeChannelsStore () {
-  var store = ChannelsStore();
-  store.channels[rancho.uuid] = fakeStatus(rancho.uuid, ranchoChat);
-  store.channels[pinball.uuid] = fakeStatus(pinball.uuid, pinballChat);
-  store.privates[elvis.uuid] = fakeStatus(elvis.uuid, testyElvisChat);
-  return store;
-}
-
 ChannelStore fakeChannelStore (Profile profile, List<Message> messages) {
   var store = ChannelStore(profile);
   for (final msg in messages) store.messages[msg.uuid] = msg;
+  store.latest = messages.last;
   return store;
 }
 
-ChannelStore channelStore (Profile profile) {
+ChannelStore channelStoreFor (Profile profile) {
   if (profile.uuid == rancho.uuid) return fakeChannelStore(profile, ranchoChat);
   else if (profile.uuid == pinball.uuid) return fakeChannelStore(profile, pinballChat);
   else if (profile.uuid == elvis.uuid) return fakeChannelStore(profile, testyElvisChat);
   else throw new ArgumentError('No fake store for $profile');
+}
+
+AppStore fakeAppStore () {
+  var store = AppStore();
+  store.self = testy;
+  store.profiles.profiles[testy.uuid] = testy;
+  store.profiles.profiles[elvis.uuid] = elvis;
+  store.profiles.profiles[rancho.uuid] = rancho;
+  store.profiles.profiles[pinball.uuid] = pinball;
+
+  store.channels[rancho.uuid] = channelStoreFor(rancho);
+  store.channels[pinball.uuid] = channelStoreFor(pinball);
+  store.channels[elvis.uuid] = channelStoreFor(elvis);
+  return store;
 }

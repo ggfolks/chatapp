@@ -3,10 +3,8 @@ import 'package:flutter/material.dart';
 import 'stores.dart';
 
 class GamesTab extends StatelessWidget {
-  const GamesTab([this.profiles, this.channels]);
-
-  final ProfilesStore profiles;
-  final ChannelsStore channels;
+  const GamesTab([this.app]);
+  final AppStore app;
 
   @override
   Widget build(BuildContext context) {

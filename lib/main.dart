@@ -7,8 +7,7 @@ import 'chat_tab.dart';
 import 'feed_tab.dart';
 import 'games_tab.dart';
 
-var profiles = fakeProfilesStore();
-var channels = fakeChannelsStore();
+var app = fakeAppStore();
 
 void main () => runApp(ChatApp());
 
@@ -56,19 +55,19 @@ class ChatShell extends StatelessWidget {
         switch (index) {
           case 0:
             return CupertinoTabView(
-              builder: (ctx) => ChatTab(profiles, channels),
+              builder: (ctx) => ChatTab(app),
               defaultTitle: 'Chat',
             );
             break;
           case 1:
             return CupertinoTabView(
-              builder: (ctx) => FeedTab(profiles, channels),
+              builder: (ctx) => FeedTab(app),
               defaultTitle: 'Feed',
             );
             break;
           case 2:
             return CupertinoTabView(
-              builder: (ctx) => GamesTab(profiles, channels),
+              builder: (ctx) => GamesTab(app),
               defaultTitle: 'Games',
             );
             break;

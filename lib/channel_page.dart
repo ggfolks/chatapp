@@ -1,4 +1,6 @@
+// import 'dart:developer' as dev;
 import 'package:intl/intl.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
@@ -62,11 +64,53 @@ bool shouldAggregate (Message earlier, Message later) {
           later.sentTime.difference(earlier.sentTime).inMinutes < 5);
 }
 
-class ChannelPage extends StatelessWidget {
-  const ChannelPage ([this.profiles, this.channel]);
-
-  final ProfilesStore profiles;
+class ChannelPage extends StatefulWidget {
+  ChannelPage ([this.app, this.channel]);
+  final AppStore app;
   final ChannelStore channel;
+
+  @override
+  _ChannelPageState createState () => _ChannelPageState(app, channel);
+}
+
+class _ChannelPageState extends State<ChannelPage> {
+  _ChannelPageState ([this.app, this.channel]) {
+    scrollController.addListener(() {
+      scrolledBack = (scrollController.offset < scrollController.position.maxScrollExtent);
+    });
+  }
+
+  final AppStore app;
+  final ChannelStore channel;
+  final scrollController = new ScrollController();
+  final textController = TextEditingController();
+  bool scrolledBack = false;
+
+  void scrollToBottom () {
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      scrollController.animateTo(
+        scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+      scrolledBack = false;
+    });
+  }
+
+  void snapToBottom () {
+    SchedulerBinding.instance.addPostFrameCallback(
+      (_) => scrollController.jumpTo(scrollController.position.maxScrollExtent));
+  }
+
+  @override
+  void dispose () {
+    scrollController.dispose();
+    textController.dispose();
+    super.dispose();
+  }
+
+  // TODO: keep track of whether we're "scrolled back" or "at the bottom"; if we're at the bottom
+  // then we want to auto scroll new messages into view when they arrive
 
   @override
   Widget build (BuildContext ctx) {
@@ -75,12 +119,11 @@ class ChannelPage extends StatelessWidget {
                                        ..sort((a, b) => a.sentTime.compareTo(b.sentTime));
     final rows = List();
 
-    // intersperse date headers (Today, Yesterday, then Month, Day, Year localized)
+    // intersperse date headers, aggregate messages from same author
     List<Message> row = null;
     if (messages.length > 0) {
       DateTime headerTime = null;
-      for (var ii = 1; ii < messages.length; ii += 1) {
-        final msg = messages[ii];
+      for (final msg in messages) {
         if (headerTime == null || !sameDate(headerTime, msg.sentTime)) {
           headerTime = msg.sentTime;
           rows.add(headerTime);
@@ -96,16 +139,50 @@ class ChannelPage extends StatelessWidget {
 
     final formatter = new RelativeDateFormatter();
 
+    if (!scrolledBack) snapToBottom();
+
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(),
       child: Observer(
-        builder: (ctx) => ListView.builder(
-          itemCount: rows.length,
-          itemBuilder: (ctx, index) {
-            final row = rows[index];
-            return (row is DateTime) ? DateHeader(formatter.format(row)) :
-              MessageView(profiles, row);
-          }
+        builder: (ctx) => Column(
+          mainAxisAlignment: MainAxisAlignment.end,
+          children: [
+            // Flutter tries to do magic to the ListView by putting enough padding to keep it from
+            // scrolling under the bototm tab bar by default, but we have another widget below the
+            // scrollview so we have to manually do that padding magic ourselves *and* remove the
+            // padding magic from listview otherwise it will have a bunch of unwanted padding
+            Expanded(child: MediaQuery.removePadding(
+              removeBottom: true, context: ctx, child: ListView.builder(
+                controller: scrollController,
+                itemCount: rows.length,
+                itemBuilder: (ctx, index) {
+                  final row = rows[index];
+                  return (row is DateTime) ? DateHeader(formatter.format(row)) :
+                    MessageView(app.profiles, row);
+                }
+              ))),
+            Container(
+              padding: const EdgeInsets.only(left: 8, right: 8),
+              decoration: BoxDecoration(border: Border(
+                top: BorderSide(width: 1.0, color: Theme.of(ctx).dividerColor),
+              )),
+              child: TextField(
+                controller: textController,
+                decoration: InputDecoration(
+                  border: InputBorder.none,
+                  hintText: 'Message ${channel.profile.name}...'
+                ),
+                textInputAction: TextInputAction.send,
+                maxLines: null, // causes it to auto-expand with long text
+                onSubmitted: (text) {
+                  channel.sendMessage(app.self, text);
+                  textController.text = "";
+                  scrollToBottom();
+                }
+              ),
+            ),
+            SizedBox(height: MediaQuery.of(ctx).padding.bottom)
+          ]
         )
       )
     );

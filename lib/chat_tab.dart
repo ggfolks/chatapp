@@ -1,14 +1,14 @@
+// import 'dart:developer' as dev;
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 
 import 'data.dart';
 import 'stores.dart';
-import 'fake.dart';
 import 'message_view.dart';
 import 'channel_page.dart';
 
-Widget statusView (BuildContext ctx, Profile profile, String text, DateTime time) {
+Widget statusView (BuildContext ctx, Profile profile, Message latest) {
   return Container(
     padding: const EdgeInsets.all(8),
     // TODO: fixed height
@@ -22,7 +22,7 @@ Widget statusView (BuildContext ctx, Profile profile, String text, DateTime time
             padding: const EdgeInsets.only(bottom: 5),
             child: Text(profile.name)
           ),
-          Text(text, style: Theme.of(ctx).textTheme.subhead),
+          Text(latest.text, style: Theme.of(ctx).textTheme.subhead),
         ])
       )
     ])
@@ -30,10 +30,9 @@ Widget statusView (BuildContext ctx, Profile profile, String text, DateTime time
 }
 
 class ChatTab extends StatelessWidget {
-  const ChatTab ([this.profiles, this.channels]);
+  const ChatTab ([this.app]);
 
-  final ProfilesStore profiles;
-  final ChannelsStore channels;
+  final AppStore app;
 
   @override
   Widget build (BuildContext ctx) {
@@ -41,21 +40,23 @@ class ChatTab extends StatelessWidget {
       style: Theme.of(ctx).textTheme.title,
       textAlign: TextAlign.left,
       child: Observer(
-        builder: (_) {
+        builder: (ctx) {
           // TODO: if channel data is not yet available, show a loading indicator?
-          List<ChannelStatus> chanstats =
-            List.from(channels.channels.values)..sort(profiles.compareNames);
-          List<ChannelStatus> privstats =
-            List.from(channels.privates.values)..sort(profiles.compareNames);
-          final chancount = chanstats.length, privcount = privstats.length;
+          List<ChannelStore> channels =
+            List.from(app.channels.values.where((cs) => cs.profile.type != ProfileType.person))
+                ..sort((a, b) => a.profile.name.compareTo(b.profile.name));
+          List<ChannelStore> privates =
+            List.from(app.channels.values.where((cs) => cs.profile.type == ProfileType.person))
+                ..sort((a, b) => a.profile.name.compareTo(b.profile.name));
+          final chancount = channels.length, privcount = privates.length;
           return ListView.builder(
             itemCount: chancount + privcount + 2,
             itemBuilder: (ctx, index) {
               if (index == 0 || index == chancount+1) {
                 return Container(
                   padding: const EdgeInsets.only(top: 10, left: 8, right: 8),
-                  decoration: const BoxDecoration(border: Border(
-                    bottom: BorderSide(width: 1.0, color: Color(0xFFFF000000)),
+                  decoration: BoxDecoration(border: Border(
+                    bottom: BorderSide(width: 1.0, color: Theme.of(ctx).dividerColor),
                   )),
                   child: Text(index == 0 ? "Channels" : "People",
                               textAlign: TextAlign.left,
@@ -63,18 +64,17 @@ class ChatTab extends StatelessWidget {
                 );
               } else {
                 final isChan = (index <= chancount);
-                final cs = isChan ? chanstats[index-1] : privstats[index-chancount-2];
-                final p = profiles.profiles[cs.uuid] ?? (isChan ? unknownChannel : unknownPerson);
+                final cs = isChan ? channels[index-1] : privates[index-chancount-2];
                 return GestureDetector(
                   onTap: () {
                     Navigator.of(ctx).push(
                       CupertinoPageRoute<void>(
-                        title: p.name,
-                        builder: (ctx) => ChannelPage(profiles, channelStore(p))
+                        title: cs.profile.name,
+                        builder: (ctx) => ChannelPage(app, cs)
                       )
                     );
                   },
-                  child: statusView(ctx, p, cs.latestMessage, cs.latestMessageTime)
+                  child: statusView(ctx, cs.profile, cs.latest)
                 );
               }
             }
