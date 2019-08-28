@@ -5,21 +5,22 @@ import 'package:flutter_mobx/flutter_mobx.dart';
 import 'data.dart';
 import 'stores.dart';
 import 'fake.dart';
+import 'message_view.dart';
 import 'channel_page.dart';
 
-Widget statusView (BuildContext ctx, String photo, String name, String text, DateTime time) {
+Widget statusView (BuildContext ctx, Profile profile, String text, DateTime time) {
   return Container(
     padding: const EdgeInsets.all(8),
     // TODO: fixed height
     child: Row(children: <Widget>[
-      Icon(CupertinoIcons.conversation_bubble), // TODO: proper photo
+      ProfileImage(profile),
       Container(
         padding: const EdgeInsets.only(left: 5),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: <Widget>[
           // TODO: display time in upper right?
           Container(
             padding: const EdgeInsets.only(bottom: 5),
-            child: Text(name)
+            child: Text(profile.name)
           ),
           Text(text, style: Theme.of(ctx).textTheme.subhead),
         ])
@@ -52,9 +53,12 @@ class ChatTab extends StatelessWidget {
             itemBuilder: (ctx, index) {
               if (index == 0 || index == chancount+1) {
                 return Container(
-                  padding: const EdgeInsets.only(top: 10),
+                  padding: const EdgeInsets.only(top: 10, left: 8, right: 8),
+                  decoration: const BoxDecoration(border: Border(
+                    bottom: BorderSide(width: 1.0, color: Color(0xFFFF000000)),
+                  )),
                   child: Text(index == 0 ? "Channels" : "People",
-                              textAlign: TextAlign.center,
+                              textAlign: TextAlign.left,
                               style: Theme.of(ctx).textTheme.headline)
                 );
               } else {
@@ -70,7 +74,7 @@ class ChatTab extends StatelessWidget {
                       )
                     );
                   },
-                  child: statusView(ctx, p.photo, p.name, cs.latestMessage, cs.latestMessageTime)
+                  child: statusView(ctx, p, cs.latestMessage, cs.latestMessageTime)
                 );
               }
             }

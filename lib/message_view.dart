@@ -7,6 +7,16 @@ import 'stores.dart';
 
 final timeFormat = new DateFormat.jm();
 
+class ProfileImage extends StatelessWidget {
+  const ProfileImage ([this.profile]);
+  final Profile profile;
+
+  @override
+  Widget build (BuildContext ctx) {
+    return Image.network(profile.photo, width: 40);
+  }
+}
+
 class MessageView extends StatelessWidget {
   const MessageView ([this.profiles, this.messages]);
 
@@ -29,7 +39,7 @@ class MessageView extends StatelessWidget {
         children: [
           Container(
             padding: const EdgeInsets.only(right: 5),
-            child: Icon(CupertinoIcons.conversation_bubble) // TODO: proper photo
+            child: ProfileImage(sender)
           ),
           Flexible(child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

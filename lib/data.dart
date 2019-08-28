@@ -26,21 +26,21 @@ final unknownPerson = Profile(
   (b) => b..uuid = ""
           ..type = ProfileType.person
           ..name = "?"
-          ..photo = "" // TODO: photo for unknown person
+          ..photo = "https://api.adorable.io/avatars/128/unknownperson.png"
 );
 
 final unknownGame = Profile(
   (b) => b..uuid = ""
           ..type = ProfileType.game
           ..name = "?"
-          ..photo = "" // TODO: photo for unknown game
+          ..photo = "https://api.adorable.io/avatars/128/unknowngame.png"
 );
 
 final unknownChannel = Profile(
   (b) => b..uuid = ""
           ..type = ProfileType.channel
           ..name = "?"
-          ..photo = "" // TODO: photo for unknown channel
+          ..photo = "https://api.adorable.io/avatars/128/unknownchannel.png"
 );
 
 abstract class ChannelStatus implements Profiled, Built<ChannelStatus, ChannelStatusBuilder> {

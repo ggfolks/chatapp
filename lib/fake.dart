@@ -6,25 +6,25 @@ var testy = Profile(
   (b) => b..uuid = Uuid.generateV4()
           ..type = ProfileType.person
           ..name = "Testy Testerson"
-          ..photo = "");
+          ..photo = "https://api.adorable.io/avatars/128/testytesterson.png");
 
 var elvis = Profile(
   (b) => b..uuid = Uuid.generateV4()
           ..type = ProfileType.person
           ..name = "Elvis Presley"
-          ..photo = "");
+          ..photo = "https://api.adorable.io/avatars/128/elvispresley.png");
 
 var rancho = Profile(
   (b) => b..uuid = Uuid.generateV4()
           ..type = ProfileType.channel
           ..name = "Rancho Kookamunga"
-          ..photo = "");
+          ..photo = "https://api.adorable.io/avatars/128/ranchokookamunga.png");
 
 var pinball = Profile(
   (b) => b..uuid = Uuid.generateV4()
           ..type = ProfileType.channel
           ..name = "Pinball Wizards"
-          ..photo = "");
+          ..photo = "https://api.adorable.io/avatars/128/pinballwizards.png");
 
 ProfilesStore fakeProfilesStore () {
   var store = ProfilesStore();
