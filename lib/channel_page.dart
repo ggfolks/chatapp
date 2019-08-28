@@ -57,8 +57,9 @@ class DateHeader extends StatelessWidget {
   }
 }
 
-bool shouldAggregate (Message a, Message b) {
-  return a.authorId == b.authorId;
+bool shouldAggregate (Message earlier, Message later) {
+  return (earlier.authorId == later.authorId &&
+          later.sentTime.difference(earlier.sentTime).inMinutes < 5);
 }
 
 class ChannelPage extends StatelessWidget {
