@@ -6,6 +6,7 @@ import 'package:google_sign_in/google_sign_in.dart';
 
 import 'uuid.dart';
 import 'data.dart';
+import 'dates.dart';
 
 part 'stores.g.dart';
 
@@ -91,6 +92,11 @@ abstract class _GamesStore with Store {
   final discover = ObservableMap<String, GameStatus>();
 }
 
+bool shouldAggregate (Message earlier, Message later) {
+  return (earlier.authorId == later.authorId &&
+          later.sentTime.difference(earlier.sentTime).inMinutes < 5);
+}
+
 class ChannelStore = _ChannelStore with _$ChannelStore;
 abstract class _ChannelStore with Store {
   _ChannelStore ([this.profile]);
@@ -102,9 +108,35 @@ abstract class _ChannelStore with Store {
   @observable
   Message latest;
 
+  /// Groups messages by date & aggregates repeated messages by the same author (within a time
+  /// cutoff) into message lists. Returns a list of `DateTime|List<Message>` which it would be great
+  /// to tell the type system about, but Dart doesn't support union types or lightweight ADTs, so
+  /// dynamic it is!
   @computed
-  List<Message> get sortedMessages =>
-    List.from(messages.values)..sort((a, b) => a.sentTime.compareTo(b.sentTime));
+  List<dynamic> aggregateMessages () {
+    // TODO: fetch messages on demand, infini-scroll through them...
+    final List<Message> sorted = List.from(messages.values)
+                                     ..sort((a, b) => a.sentTime.compareTo(b.sentTime));
+    final rows = List();
+    // intersperse date headers, aggregate messages from same author
+    List<Message> row = null;
+    if (sorted.length > 0) {
+      DateTime headerTime = null;
+      for (final msg in sorted) {
+        if (headerTime == null || !sameDate(headerTime, msg.sentTime)) {
+          headerTime = msg.sentTime;
+          rows.add(headerTime);
+          row = null;
+        }
+        if (row == null || !shouldAggregate(row.last, msg)) {
+          row = List();
+          rows.add(row);
+        }
+        row.add(msg);
+      }
+    }
+    return rows;
+  }
 
   @action
   void sendMessage (Profile self, String text) {
