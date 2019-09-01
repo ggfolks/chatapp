@@ -1,4 +1,4 @@
-// import 'dart:developer' as dev;
+import 'dart:developer' as dev;
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
@@ -65,8 +65,7 @@ class _ChannelPageState extends State<ChannelPage> {
   @override
   Widget build (BuildContext ctx) {
     // TODO: fetch messages on demand, infini-scroll through them...
-    final List<Message> messages = List.from(channel.messages.values)
-                                       ..sort((a, b) => a.sentTime.compareTo(b.sentTime));
+    final List<Message> messages = channel.sortedMessages;
     final rows = List();
 
     // intersperse date headers, aggregate messages from same author
@@ -87,10 +86,9 @@ class _ChannelPageState extends State<ChannelPage> {
       }
     }
 
-    final formatter = new RelativeDateFormatter();
-
     if (!scrolledBack) snapToBottom();
 
+    final formatter = new RelativeDateFormatter();
     return CupertinoPageScaffold(
       navigationBar: const CupertinoNavigationBar(),
       child: Observer(

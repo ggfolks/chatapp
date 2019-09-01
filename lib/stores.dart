@@ -2,6 +2,7 @@
 import 'package:mobx/mobx.dart';
 import 'package:firebase_analytics/firebase_analytics.dart';
 import 'package:firebase_analytics/observer.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 import 'uuid.dart';
 import 'data.dart';
@@ -29,10 +30,23 @@ class AppStore extends _AppStore with _$AppStore {
     return AppStore._(analytics, FirebaseAnalyticsObserver(analytics: analytics));
   }
 
-  AppStore._ ([this.analytics, this.observer]);
+  AppStore._ ([this.analytics, this.observer]) {
+    googleSignIn.onCurrentUserChanged.listen((account) {
+      if (account == null) _clearUser();
+      else _setUser(account.id, account.displayName, account.photoUrl);
+    });
+    googleSignIn.signInSilently();
+  }
 
   final FirebaseAnalytics analytics;
   final FirebaseAnalyticsObserver observer;
+
+  final GoogleSignIn googleSignIn = GoogleSignIn(
+    scopes: <String>[
+      // 'email',
+      // 'https://www.googleapis.com/auth/contacts.readonly',
+    ],
+  );
 
   /// Resolved profile information.
   final profiles = new ProfilesStore();
@@ -40,19 +54,25 @@ class AppStore extends _AppStore with _$AppStore {
   /// Messages for each channel.
   final channels = ObservableMap<String, ChannelStore>();
 
-  Future<void> setUserId (String uuid) async {
-    await analytics.setUserId(uuid);
-    // TODO: look up profile data?
-    this.self = Profile(
-      (b) => b..uuid = uuid
-              ..type = ProfileType.person
-              ..name = "?"
-              ..photo = "https://api.adorable.io/avatars/128/$uuid.png"
-    );
-  }
-
   Future<void> sendAnalyticsEvent(String name, Map<String, dynamic> params) async {
     return await analytics.logEvent(name: name, parameters: params);
+  }
+
+  void _setUser (String uuid, String name, String photo) async {
+    await analytics.setUserId(uuid);
+    // TODO: look up profile data from our sources, don't use the Google stuff
+    self = Profile(
+      (b) => b..uuid = uuid
+              ..type = ProfileType.person
+              ..name = name
+              ..photo = photo
+    );
+    // TEMP: stuff this fake profile into our profiles db
+    profiles.profiles[self.uuid] = self;
+  }
+
+  _clearUser () {
+    self = unknownPerson;
   }
 }
 
@@ -77,11 +97,16 @@ abstract class _ChannelStore with Store {
 
   final Profile profile;
 
+  ObservableMap<String, Message> messages = ObservableMap();
+
   @observable
   Message latest;
 
-  ObservableMap<String, Message> messages = ObservableMap();
+  @computed
+  List<Message> get sortedMessages =>
+    List.from(messages.values)..sort((a, b) => a.sentTime.compareTo(b.sentTime));
 
+  @action
   void sendMessage (Profile self, String text) {
     final trimmed = text.trim();
     if (trimmed.length > 0) {

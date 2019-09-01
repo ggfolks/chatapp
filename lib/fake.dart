@@ -168,7 +168,7 @@ ChannelStore channelStoreFor (Profile profile) {
 
 AppStore fakeAppStore () {
   var store = AppStore();
-  store.self = testy;
+  // store.self = testy;
   store.profiles.profiles[testy.uuid] = testy;
   store.profiles.profiles[elvis.uuid] = elvis;
   store.profiles.profiles[rancho.uuid] = rancho;

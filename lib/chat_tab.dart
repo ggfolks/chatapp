@@ -78,13 +78,37 @@ class ChatTab extends StatelessWidget {
   @override
   Widget build (BuildContext ctx) {
     return Observer(builder: (ctx) {
-      // TODO: if channel data is not yet available, show a loading indicator?
-      final slivers = List<Widget>();
-      slivers.add(makeHeader(ctx, "Channels"));
-      slivers.add(makeChannelList(ctx, (cs) => cs.profile.type != ProfileType.person));
-      slivers.add(makeHeader(ctx, "People"));
-      slivers.add(makeChannelList(ctx, (cs) => cs.profile.type == ProfileType.person));
-      return SafeArea(child: CustomScrollView(slivers: slivers));
+      if (app.self.uuid == "") {
+        return Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: <Widget>[
+              Text('Login to chat'),
+              RaisedButton(
+                child: const Text('SIGN IN'),
+                onPressed: _handleSignIn,
+              ),
+            ],
+          ),
+        );
+      } else {
+        // TODO: if channel data is not yet available, show a loading indicator?
+        final slivers = List<Widget>();
+        slivers.add(makeHeader(ctx, "Channels"));
+        slivers.add(makeChannelList(ctx, (cs) => cs.profile.type != ProfileType.person));
+        slivers.add(makeHeader(ctx, "People"));
+        slivers.add(makeChannelList(ctx, (cs) => cs.profile.type == ProfileType.person));
+        return SafeArea(child: CustomScrollView(slivers: slivers));
+      }
     });
+  }
+
+  Future<void> _handleSignIn () async {
+    try {
+      await app.googleSignIn.signIn();
+    } catch (error) {
+      // TODO: stick error somewhere useful
+      print(error);
+    }
   }
 }
