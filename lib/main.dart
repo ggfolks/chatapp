@@ -8,13 +8,25 @@ import 'feed_tab.dart';
 import 'games_tab.dart';
 
 var app = fakeAppStore();
-
 void main () => runApp(ChatApp());
 
-class ChatApp extends StatelessWidget {
+class ChatApp extends StatefulWidget {
+  _ChatAppState createState () => _ChatAppState();
+}
 
-  @override
-  Widget build(BuildContext ctx) {
+class _ChatAppState extends State<ChatApp> with WidgetsBindingObserver {
+
+  @override void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  void didChangeAppLifecycleState (AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) app.sendAnalyticsEvent(
+      "app_resumed", {"user": app.self.uuid});
+  }
+
+  @override Widget build(BuildContext ctx) {
     return MaterialApp(
       title: 'tfw chat',
       theme: ThemeData(
@@ -31,8 +43,7 @@ class ChatApp extends StatelessWidget {
 class ChatShell extends StatelessWidget {
   const ChatShell();
 
-  @override
-  Widget build(BuildContext ctx) {
+  @override Widget build(BuildContext ctx) {
     return CupertinoTabScaffold(
       tabBar: CupertinoTabBar(
         items: [

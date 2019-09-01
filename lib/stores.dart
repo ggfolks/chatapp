@@ -1,9 +1,10 @@
-import 'dart:developer' as dev;
+// import 'dart:developer' as dev;
 import 'package:mobx/mobx.dart';
+import 'package:firebase_analytics/firebase_analytics.dart';
+import 'package:firebase_analytics/observer.dart';
 
 import 'uuid.dart';
 import 'data.dart';
-import 'fake.dart';
 
 part 'stores.g.dart';
 
@@ -21,17 +22,43 @@ abstract class _ProfilesStore with Store {
   // TODO: actions to request that profiles be resolveed
 }
 
-class AppStore = _AppStore with _$AppStore;
-abstract class _AppStore with Store {
+class AppStore extends _AppStore with _$AppStore {
 
-  @observable
-  Profile self = unknownPerson;
+  factory AppStore () {
+    final analytics = FirebaseAnalytics();
+    return AppStore._(analytics, FirebaseAnalyticsObserver(analytics: analytics));
+  }
+
+  AppStore._ ([this.analytics, this.observer]);
+
+  final FirebaseAnalytics analytics;
+  final FirebaseAnalyticsObserver observer;
 
   /// Resolved profile information.
   final profiles = new ProfilesStore();
 
   /// Messages for each channel.
   final channels = ObservableMap<String, ChannelStore>();
+
+  Future<void> setUserId (String uuid) async {
+    await analytics.setUserId(uuid);
+    // TODO: look up profile data?
+    this.self = Profile(
+      (b) => b..uuid = uuid
+              ..type = ProfileType.person
+              ..name = "?"
+              ..photo = "https://api.adorable.io/avatars/128/$uuid.png"
+    );
+  }
+
+  Future<void> sendAnalyticsEvent(String name, Map<String, dynamic> params) async {
+    return await analytics.logEvent(name: name, parameters: params);
+  }
+}
+
+abstract class _AppStore with Store {
+  @observable
+  Profile self = unknownPerson;
 }
 
 class GamesStore = _GamesStore with _$GamesStore;
