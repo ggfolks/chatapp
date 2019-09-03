@@ -144,7 +144,7 @@ abstract class _ChannelStore with Store {
     if (trimmed.length > 0) {
       // TEMP: just add it to the local store
       final msg =   Message(
-        (b) => b..uuid = Uuid.generateV4()
+        (b) => b..uuid = Uuid.generateV1()
                 ..authorId = self.uuid
                 ..text = text
                 ..sentTime = DateTime.now()

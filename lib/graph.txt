@@ -1,0 +1,20 @@
+var paths = readComponent "paths"
+var state = readComponent "state"
+
+var notWalking = paths.x == undefined
+play("Walk", !notWalking)
+
+play("Eat", state.action == 2)
+
+var faint = play("Faint", notWalking)
+
+play("Sleep", state.action == 3 && faint.finished)
+
+var hatch = play("Hatch", state.action == 1)
+
+var wakeUp = play("WakeUp", state.action == 4 && notWalking)
+
+play("Idle", (state.action != 4 || wakupUp.finished) &&
+             (state.action != 3) &&
+             (state.action != 2) &&
+             (state.action != 1 || hatch.finished))
