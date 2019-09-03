@@ -1,20 +1,33 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-// import 'package:flutter_mobx/flutter_mobx.dart';
 
-import 'fake.dart';
+import 'stores.dart';
 import 'chat_tab.dart';
 import 'feed_tab.dart';
 import 'games_tab.dart';
 
-var app = fakeAppStore();
-void main () => runApp(ChatApp());
+Future<void> main () async {
+  final app = await AppStore.create(FirebaseOptions(
+    projectID: 'tfwchat',
+    googleAppID: '1:733313051370:ios:a49e7f8aa716dfa6',
+    // TODO: I think we have separate API keys for iOS & Android, so maybe we need to use the one
+    // for the right platform... or the web API key?
+    apiKey: 'AIzaSyCCh5TKk32ZG-fyUBG_aDLUvFCjTfEvBrc',
+    // gcmSenderID: '',
+  ));
+  runApp(ChatApp(app));
+}
 
 class ChatApp extends StatefulWidget {
-  _ChatAppState createState () => _ChatAppState();
+  final AppStore app;
+  ChatApp(this.app);
+  _ChatAppState createState () => _ChatAppState(app);
 }
 
 class _ChatAppState extends State<ChatApp> with WidgetsBindingObserver {
+  final AppStore app;
+  _ChatAppState (this.app);
 
   @override void initState() {
     super.initState();
@@ -26,6 +39,10 @@ class _ChatAppState extends State<ChatApp> with WidgetsBindingObserver {
       "app_resumed", {"user": app.self.uuid});
   }
 
+  // TODO: create app store here
+  // display some sort of UI prior to async resolve of AppStore
+  // also handle failure of AppStore init
+
   @override Widget build(BuildContext ctx) {
     return MaterialApp(
       title: 'tfw chat',
@@ -33,15 +50,14 @@ class _ChatAppState extends State<ChatApp> with WidgetsBindingObserver {
         primarySwatch: Colors.blue,
       ),
       // TEMP: use a scaffold so we can show snackbars
-      home: Scaffold(
-        body: const ChatShell()
-      ),
+      home: Scaffold(body: ChatShell(app)),
     );
   }
 }
 
 class ChatShell extends StatelessWidget {
-  const ChatShell();
+  final AppStore app;
+  ChatShell (this.app);
 
   @override Widget build(BuildContext ctx) {
     return CupertinoTabScaffold(

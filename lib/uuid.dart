@@ -1,3 +1,4 @@
+import "package:collection/collection.dart";
 import 'dart:math';
 import 'dart:typed_data';
 import './basex.dart';
@@ -25,8 +26,11 @@ class Uuid {
   // Per 4.2.2, randomize (14 bit) clockseq
   static int _clockseq = _random.nextInt(1 << 16) & 0x3fff;
 
-  /// Generates a binary version 1 (date-time + node-id) uuid.
-  static Uint8List generateV1b () {
+  /// A uuid that's all zeroes.
+  static Uuid zero = Uuid._(Uint8List(16));
+
+  /// Generates a version 1 (date-time + node-id) uuid.
+  static Uuid makeV1 () {
     // UUID timestamps are 100 nano-second units since the Gregorian epoch, (1582-10-15 00:00).
     // Time is stored as 'msecs' (integer milliseconds) since unix epoch (1970-01-01 00:00) and
     // 'nsecs' (100-nanoseconds offset from msecs)
@@ -51,62 +55,73 @@ class Uuid {
     final tl = ((gmsecs & 0xfffffff) * 10000 + nsecs) % 0x100000000;
     final tmh = (gmsecs ~/ 0x100000000 * 10000) & 0xfffffff;
 
-    var uuid = new Uint8List(16);
+    var data = new Uint8List(16);
     // `time_low`
-    uuid[0] = tl >> 24 & 0xff;
-    uuid[1] = tl >> 16 & 0xff;
-    uuid[2] = tl >> 8 & 0xff;
-    uuid[3] = tl & 0xff;
+    data[0] = tl >> 24 & 0xff;
+    data[1] = tl >> 16 & 0xff;
+    data[2] = tl >> 8 & 0xff;
+    data[3] = tl & 0xff;
     // `time_mid`
-    uuid[4] = tmh >> 8 & 0xff;
-    uuid[5] = tmh & 0xff;
+    data[4] = tmh >> 8 & 0xff;
+    data[5] = tmh & 0xff;
     // `time_high_and_version`
-    uuid[6] = tmh >> 24 & 0xf | 0x10; // include version
-    uuid[7] = tmh >> 16 & 0xff;
+    data[6] = tmh >> 24 & 0xf | 0x10; // include version
+    data[7] = tmh >> 16 & 0xff;
     // `clock_seq_hi_and_reserved` (Per 4.2.2 - include variant)
-    uuid[8] = _clockseq >> 8 | 0x80;
+    data[8] = _clockseq >> 8 | 0x80;
     // `clock_seq_low`
-    uuid[9] = _clockseq & 0xff;
+    data[9] = _clockseq & 0xff;
     // `node`
-    uuid[10] = _nodeId[0];
-    uuid[11] = _nodeId[1];
-    uuid[12] = _nodeId[2];
-    uuid[13] = _nodeId[3];
-    uuid[14] = _nodeId[4];
-    uuid[15] = _nodeId[5];
-    return uuid;
+    data[10] = _nodeId[0];
+    data[11] = _nodeId[1];
+    data[12] = _nodeId[2];
+    data[13] = _nodeId[3];
+    data[14] = _nodeId[4];
+    data[15] = _nodeId[5];
+    return new Uuid._(data);
   }
 
-  /// Generate a binary version 4 (random) uuid.
-  static Uint8List generateV4b () {
+  /// Generates a version 4 (random) uuid.
+  static Uuid makeV4 () {
     // Generate xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx.
-    var uuid = new Uint8List(16);
-    for (var ii = 0; ii < 16; ii += 1) uuid[ii] = _random.nextInt(1 << 8);
-    uuid[6] = 0x40 | (uuid[6] & 0xF);
-    return uuid;
+    var data = new Uint8List(16);
+    for (var ii = 0; ii < 16; ii += 1) data[ii] = _random.nextInt(1 << 8);
+    data[6] = 0x40 | (data[6] & 0xF);
+    return new Uuid._(data);
   }
 
-  /// Generates a baset 62-encoded version 1 (date-time + node-id) uuid.
-  static String generateV1 () => toBase62(generateV1b());
+  /// Converts a base-62 encoded string into a uuid.
+  static Uuid fromBase62 (String encoded) {
+    return new Uuid._(Base62.decode(encoded));
+  }
 
-  /// Generate a base 62-encoded version 4 (random) uuid.
-  static String generateV4 () => toBase62(generateV4b());
+  /// The 16 bytes of uuid data.
+  final Uint8List data;
 
-    /// Converts a binary uuid to canonical string form: xxxxxxxx-xxxx-xxxx-yxxx-xxxxxxxxxxxx.
-  static String toCanonical (Uint8List uuid) {
+  /// Creates a UUID from a 16-byte list of data.
+  Uuid._ (this.data);
+
+  /// Returns the canonical string form: xxxxxxxx-xxxx-xxxx-yxxx-xxxxxxxxxxxx.
+  String toCanonical () {
     var str = '';
-    for (var ii =  0; ii <  4; ii += 1) str += uuid[ii].toRadixString(16).padLeft(2, '0');
+    for (var ii =  0; ii <  4; ii += 1) str += data[ii].toRadixString(16).padLeft(2, '0');
     str += '-';
-    for (var ii =  4; ii <  6; ii += 1) str += uuid[ii].toRadixString(16).padLeft(2, '0');
+    for (var ii =  4; ii <  6; ii += 1) str += data[ii].toRadixString(16).padLeft(2, '0');
     str += '-';
-    for (var ii =  6; ii <  8; ii += 1) str += uuid[ii].toRadixString(16).padLeft(2, '0');
+    for (var ii =  6; ii <  8; ii += 1) str += data[ii].toRadixString(16).padLeft(2, '0');
     str += '-';
-    for (var ii =  8; ii < 10; ii += 1) str += uuid[ii].toRadixString(16).padLeft(2, '0');
+    for (var ii =  8; ii < 10; ii += 1) str += data[ii].toRadixString(16).padLeft(2, '0');
     str += '-';
-    for (var ii = 10; ii < 16; ii += 1) str += uuid[ii].toRadixString(16).padLeft(2, '0');
+    for (var ii = 10; ii < 16; ii += 1) str += data[ii].toRadixString(16).padLeft(2, '0');
     return str;
   }
 
-  /// Converts a binary uuid to a Base62 string, the format used by tfw.
-  static String toBase62 (Uint8List uuid) => Base62.encode(uuid);
+  /// Returns this uuid as a base-62 encoded string, the format used by tfw.
+  String toBase62 () => Base62.encode(data);
+
+  static final _equality = ListEquality<int>();
+
+  @override String toString () => toBase62();
+  @override int get hashCode => _equality.hash(data);
+  @override bool operator== (dynamic other) => other is Uuid && _equality.equals(data, other.data);
 }

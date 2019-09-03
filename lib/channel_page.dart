@@ -28,7 +28,7 @@ Widget messagesList (AppStore app, ChannelStore channel, ScrollController scroll
       return (row is DateTime) ? Container(
         padding: const EdgeInsets.only(top: 8, left: 8, right: 8),
         child: Text(formatter.formatHeader(row), style: Theme.of(ctx).textTheme.title)
-      ) : MessageView(app.profiles, row);
+      ) : MessageView(app, row);
     }
   );
 }

@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 
+import 'uuid.dart';
 import 'data.dart';
 import 'stores.dart';
 import 'dates.dart';
@@ -78,7 +79,7 @@ class ChatTab extends StatelessWidget {
   @override
   Widget build (BuildContext ctx) {
     return Observer(builder: (ctx) {
-      if (app.self.uuid == "") {
+      if (app.self.uuid == Uuid.zero) {
         return Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,

@@ -18,15 +18,15 @@ class ProfileImage extends StatelessWidget {
 }
 
 class MessageView extends StatelessWidget {
-  const MessageView ([this.profiles, this.messages]);
+  const MessageView ([this.app, this.messages]);
 
-  final ProfilesStore profiles;
+  final AppStore app;
   final List<Message> messages;
 
   @override
   Widget build (BuildContext ctx) {
     final first = messages.first;
-    final sender = profiles.profiles[first.authorId] ?? unknownPerson;
+    final sender = app.profiles.profiles[first.authorId] ?? unknownPerson;
     final texts = messages.map((msg) => Container(
       padding: const EdgeInsets.only(top: 5),
       child: Text(msg.text, style: Theme.of(ctx).textTheme.subhead)
