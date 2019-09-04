@@ -4,18 +4,9 @@ import 'package:flutter/material.dart';
 
 import 'data.dart';
 import 'stores.dart';
+import 'ui.dart';
 
 final timeFormat = new DateFormat.jm();
-
-class ProfileImage extends StatelessWidget {
-  const ProfileImage ([this.profile]);
-  final Profile profile;
-
-  @override
-  Widget build (BuildContext ctx) {
-    return Image.network(profile.photo, width: 40);
-  }
-}
 
 class MessageView extends StatelessWidget {
   const MessageView ([this.app, this.messages]);

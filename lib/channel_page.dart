@@ -62,15 +62,13 @@ class _ChannelPageState extends State<ChannelPage> {
       (_) => scrollController.jumpTo(scrollController.position.maxScrollExtent));
   }
 
-  @override
-  void dispose () {
+  @override void dispose () {
     scrollController.dispose();
     textController.dispose();
     super.dispose();
   }
 
-  @override
-  Widget build (BuildContext ctx) {
+  @override Widget build (BuildContext ctx) {
     if (!scrolledBack) snapToBottom();
 
     return CupertinoPageScaffold(
@@ -100,7 +98,7 @@ class _ChannelPageState extends State<ChannelPage> {
                 textInputAction: TextInputAction.send,
                 maxLines: null, // causes it to auto-expand with long text
                 onSubmitted: (text) {
-                  channel.sendMessage(app.self, text);
+                  channel.sendMessage(app.profiles.self, text);
                   textController.text = "";
                   scrollToBottom();
                 }

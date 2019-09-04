@@ -91,9 +91,10 @@ class Uuid {
   }
 
   /// Converts a base-62 encoded string into a uuid.
-  static Uuid fromBase62 (String encoded) {
-    return new Uuid._(Base62.decode(encoded));
-  }
+  static Uuid fromBase62 (String encoded) => new Uuid._(Base62.decode(encoded));
+
+  /// Converts a uuid into a base-62 encoded string, the format used by tfw.
+  static String toBase62 (Uuid uuid) => Base62.encode(uuid.data);
 
   /// The 16 bytes of uuid data.
   final Uint8List data;
@@ -116,12 +117,9 @@ class Uuid {
     return str;
   }
 
-  /// Returns this uuid as a base-62 encoded string, the format used by tfw.
-  String toBase62 () => Base62.encode(data);
-
   static final _equality = ListEquality<int>();
 
-  @override String toString () => toBase62();
+  @override String toString () => toBase62(this);
   @override int get hashCode => _equality.hash(data);
   @override bool operator== (dynamic other) => other is Uuid && _equality.equals(data, other.data);
 }

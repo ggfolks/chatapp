@@ -1,13 +1,12 @@
 import 'package:flutter/material.dart';
 
+import 'ui.dart';
 import 'stores.dart';
 
-class GamesTab extends StatelessWidget {
-  const GamesTab([this.app]);
-  final AppStore app;
+class GamesTab extends AppTab {
+  GamesTab (AppStore app) : super(app);
 
-  @override
-  Widget build(BuildContext context) {
+  @override Widget build (BuildContext context) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,

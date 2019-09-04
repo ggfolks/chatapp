@@ -1,26 +1,214 @@
-import 'dart:developer' as dev;
+import "package:cloud_firestore/cloud_firestore.dart";
+import "package:firebase_analytics/firebase_analytics.dart";
+import "package:firebase_analytics/observer.dart";
+import "package:firebase_core/firebase_core.dart";
+import "package:google_sign_in/google_sign_in.dart";
+import "package:mobx/mobx.dart";
 
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_analytics/firebase_analytics.dart';
-import 'package:firebase_analytics/observer.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'package:mobx/mobx.dart';
+import "uuid.dart";
+import "data.dart";
+import "dates.dart";
 
-import 'uuid.dart';
-import 'data.dart';
-import 'dates.dart';
+part "stores.g.dart";
 
-part 'stores.g.dart';
+// bits to sync between Firebase sets (arrays) & maps and MobX sets & maps
+abstract class Codec<T> {
+  dynamic encode (T value);
+  T decode (dynamic value);
+}
+
+void syncSetFrom<E> (ObservableSet<E> set, DocumentSnapshot snap, String propName,
+                     Codec<E> elemCodec) {
+  List<dynamic> sourceData = snap.data[propName];
+  if (sourceData != null) {
+    for (var oelem in set) if (!sourceData.contains(elemCodec.encode(oelem))) set.remove(oelem);
+    for (var elem in sourceData) set.add(elemCodec.decode(elem));
+  }
+}
+
+void syncMapFrom<K,V> (ObservableMap<K,V> map, DocumentSnapshot snap, String propName,
+                       Codec<K> keyCodec, Codec<V> valueCodec) {
+  Map<dynamic, dynamic> sourceData = snap.data[propName];
+  if (sourceData != null) {
+    for (K ok in map.keys) if (!sourceData.containsKey(keyCodec.encode(ok))) map.remove(ok);
+    sourceData.forEach((k, v) => map[keyCodec.decode(k)] = valueCodec.decode(v));
+  }
+}
+
+Dispose syncMapTo<K,V> (ObservableMap<K,V> map, DocumentReference doc, String propName,
+                        Codec<K> keyCodec, Codec<V> valueCodec) {
+  // TODO
+  return map.observe((change) {
+    switch (change.type) {
+      case OperationType.add:
+      case OperationType.update:
+      case OperationType.remove:
+    }
+  });
+}
+
+class IdentCodec extends Codec<dynamic> {
+  dynamic encode (dynamic value) => value;
+  dynamic decode (dynamic value) => value;
+}
+final identCodec = new IdentCodec();
+
+class UuidCodec extends Codec<Uuid> {
+  String encode (Uuid key) => Uuid.toBase62(key);
+  Uuid decode (dynamic raw) => Uuid.fromBase62(raw);
+}
+final uuidCodec = new UuidCodec();
+
+class FriendStatusCodec extends Codec<FriendStatus> {
+  int encode (FriendStatus value) => encodeFriendStatus(value);
+  FriendStatus decode (dynamic raw) => decodeFriendStatus(raw);
+}
+final friendStatusCodec = new FriendStatusCodec();
+
+class Schema {
+  final Firestore store;
+  Schema(this.store);
+
+  DocumentReference authRef (String fbid) => store.collection("auth").document(fbid);
+  DocumentReference userRef (Uuid id) =>  store.collection("users").document(id.toString());
+  DocumentReference profileRef (Uuid id) => store.collection("profiles").document(id.toString());
+}
+
+class UserStore = _UserStore with _$UserStore;
+abstract class _UserStore with Store {
+  _UserStore (this._schema);
+
+  /// The id of the user for whom we manage data.
+  @observable Uuid id = Uuid.zero;
+
+  /// The id of the user we are authenticated as.
+  /// This may differ from `id` if we've adopted the persona of a test user.
+  @observable Uuid authId = Uuid.zero;
+
+  /// The status of this user's friendships.
+  final friends = ObservableMap<Uuid, FriendStatus>();
+
+  /// The channels to which this user is subscribed.
+  final channels = ObservableMap<Uuid, FriendStatus>();
+
+  void inviteFriend (Uuid fid) {
+    final status = friends[fid];
+    if (status != null && status != FriendStatus.none) {
+      print("Existing status for invite $fid, have $status.");
+    } else {
+      print("Sent friend request from $id to $fid");
+      _updateFriendStatus(id, fid, FriendStatus.sent);
+      _updateFriendStatus(fid, id, FriendStatus.received);
+    }
+  }
+
+  void rescindInvite (Uuid fid) {
+    final status = friends[fid];
+    if (status != FriendStatus.sent) {
+      print("No sent invite for rescind $fid, status: $status.");
+    } else {
+      _updateFriendStatus(id, fid, FriendStatus.none);
+      _updateFriendStatus(fid, id, FriendStatus.none);
+    }
+  }
+
+  void acceptInvite (Uuid fid) {
+    final status = friends[fid];
+    if (status != FriendStatus.received) {
+      print("No received invite for accept $fid, status: $status.");
+    } else {
+      _updateFriendStatus(id, fid, FriendStatus.accepted);
+      _updateFriendStatus(fid, id, FriendStatus.accepted);
+    }
+  }
+
+  void declineInvite (Uuid fid) {
+    final status = friends[fid];
+    if (status != FriendStatus.received) {
+      print("No received invite for decline $fid, status: $status.");
+    } else {
+      _updateFriendStatus(id, fid, FriendStatus.declined);
+      _updateFriendStatus(fid, id, FriendStatus.declined);
+    }
+  }
+
+  _updateFriendStatus (Uuid id, Uuid fid, FriendStatus status) =>
+    _schema.userRef(id).updateData({"friends.$fid": encodeFriendStatus(status)});
+
+  final Schema _schema;
+  final _onClear = List<Dispose>();
+
+  setUser (Uuid newId) {
+    if (id != Uuid.zero) {
+      id = Uuid.zero;
+      friends.clear();
+      channels.clear();
+      for (final fn in _onClear) fn();
+      _onClear.clear();
+    }
+    if (newId != Uuid.zero) {
+      id = newId;
+
+      final userRef = _schema.userRef(newId);
+      // _onClear.add(syncMapTo(friends, userRef, 'friends', Uuid.toBase62, encodeFriendStatus));
+      final userSub = userRef.snapshots().listen((snap) {
+        if (!snap.exists) {
+          userRef.setData({"friends": {}, "created": FieldValue.serverTimestamp()}, merge: true);
+        } else {
+          // if (snap.data["channels"] == null) userRef.updateData({"channels": {}});
+          syncMapFrom(friends, snap, "friends", uuidCodec, friendStatusCodec);
+          // TODO: ChannelSyncer
+        }
+      }, onError: (error) {
+        print("Subscription error: $error"); // TODO: better error handling
+      });
+      _onClear.add(() => userSub.cancel());
+    }
+  }
+
+  Future<Uuid> _userDidAuth (String fbid) async {
+    // see if we already have a mapping from the Firebase id to tfw uuid
+    final authRef = _schema.authRef(fbid);
+    var id = Uuid.zero;
+    await _schema.store.runTransaction((tx) async {
+      final selfDoc = await tx.get(authRef);
+      if (selfDoc.exists) {
+        id = Uuid.fromBase62(selfDoc.data["id"]);
+        // we have to write something in a transaction, so write a last authed timestamp... meh
+        await tx.update(authRef, {"lastAuth": FieldValue.serverTimestamp()});
+      } else {
+        id = Uuid.makeV1();
+        await tx.set(authRef, {"id": id.toString(), "lastAuth": FieldValue.serverTimestamp()});
+        // TODO: also add email, auth provider type, other stuff?
+      }
+    });
+    authId = id;
+    setUser(id);
+    return id;
+  }
+
+  _userDidUnauth () {
+    if (id == authId) setUser(Uuid.zero);
+    authId = Uuid.zero;
+  }
+}
 
 class ProfilesStore = _ProfilesStore with _$ProfilesStore;
 abstract class _ProfilesStore with Store {
-  _ProfilesStore (this._store);
+  _ProfilesStore (this._schema, this._user) {
+    reaction((_) => _user.id, (Uuid id) {
+      if (id != Uuid.zero) resolveProfile(id);
+    }, fireImmediately: true);
+  }
+
+  /// The profile that represents the authed user.
+  @computed Profile get self => profiles[_user.id] ?? unknownPerson;
 
   /// Resolved profile information.
   final profiles = ObservableMap<Uuid, Profile>();
 
-  final Firestore _store;
+  final Schema _schema;
+  final UserStore _user;
 
   /// Returns the name of the specified entity, or `?` if the entity is unknown.
   String name (Uuid uuid) => profiles[uuid]?.name ?? unknownPerson.name;
@@ -28,138 +216,88 @@ abstract class _ProfilesStore with Store {
   /// Compares two profiled entities by their profile names.
   int compareNames (Profiled a, Profiled b) => name(a.profileId).compareTo(name(b.profileId));
 
+  /// Returns the ids of all resolved people profiles. NOTE: we have to operate using keys otherwise
+  /// we won't get notifications from MobX about changes.
+  @computed List<Profile> get people {
+    final ids = profiles.keys.where((k) => profiles[k].type == ProfileType.person);
+    return ids.map((id) => profiles[id]).toList()..sort((a, b) => a.name.compareTo(b.name));
+  }
+
   /// Requests that the profile for the specified user be resolved. A placeholder profile will
   /// become available immediately and will be replaced by the real profile data when it's
   /// available. It's OK to call this method repeatedly for the same profile id.
-  resolveProfile (Uuid id, ProfileType type) async {
+  resolveProfile (Uuid id) async {
     if (profiles.containsKey(id)) return;
     // put a "pending" placeholder into the profiles map
     profiles[id] = Profile(
       (b) => b..uuid = id
-              ..type = type
-              ..name = '...'
+              ..type = ProfileType.pending
+              ..name = "..."
               ..photo = "https://api.adorable.io/avatars/128/pending.png" // TODO
     );
     // TODO: maintain a set of queries so that we get profile updates?
-    final profile = await _profileDoc(id).get();
-    if (profile.exists) profiles[id] = Profile(
-      (b) => b..uuid = id
-              ..type = type
-              ..name = profile.data['name']
-              ..photo = profile.data['photo']
-    );
-    else dev.log("Asked to resolve non-existent profile: $id");
+    final profile = await _schema.profileRef(id).get();
+    if (profile.exists) profiles[id] = _makeProfile(id, profile);
+    else print("Asked to resolve non-existent profile: $id");
   }
 
-  Future<Profile> _userDidAuth (String fbid, String name, String photo) async {
-    // see if we already have a mapping from the Firebase id to tfw uuid
-    final authRef = _store.collection("auth").document(fbid);
-    var id = Uuid.zero;
-    await _store.runTransaction((tx) async {
-      final selfDoc = await tx.get(authRef);
-      if (selfDoc.exists) {
-        id = Uuid.fromBase62(selfDoc.data['id']);
-        // we have to write something in a transaction, so write a last authed timestamp... meh
-        await tx.update(authRef, {'lastAuth': FieldValue.serverTimestamp()});
-      } else {
-        id = Uuid.makeV1();
-        await tx.set(authRef, {'id': id.toBase62(), 'lastAuth': FieldValue.serverTimestamp()});
-        // TODO: also add email, auth provider type, other stuff?
-      }
-    });
+  /// HACK: slurps the all people profiles onto the client; we use this right now for the people
+  /// tab because I don't want to bother with implementing incremental search and blah blah.
+  resolveAllPeople () async {
+    final people = await _schema.store.collection("profiles").
+      where("type", isEqualTo: 1).getDocuments();
+    for (final doc in people.documents) {
+      final id = Uuid.fromBase62(doc.documentID);
+      profiles[id] = _makeProfile(id, doc);
+    }
+  }
 
-    // TODO: look up profile data from our sources, don't use the Google stuff
-    final self = Profile(
-      (b) => b..uuid = id
-              ..type = ProfileType.person
-              ..name = name
-              ..photo = photo
-    );
-
-    // TEMP: just update our profile data with the latest Googly bits
-    _profileDoc(id).setData({
-      'name': name,
-      'photo': photo,
-      // TODO: or maybe we just have one email that we store here?
+  Future<void> updateProfile (Uuid id, ProfileType type, String name, String photo) async =>
+    _schema.profileRef(id).setData({
+      "type": encodeProfileType(type), "name": name, "photo": photo
     }, merge: true);
 
-    profiles[self.uuid] = self;
-    return self;
+  void _userDidAuth (Uuid id, String name, String photo) async {
+    // TEMP: update our profile data with the latest Googly bits
+    updateProfile(id, ProfileType.person, name, photo);
   }
 
-  DocumentReference _profileDoc (Uuid id) => _store.collection('profiles').document(id.toBase62());
+  Profile _makeProfile (Uuid id, DocumentSnapshot snap) => Profile(
+    (b) => b..uuid = id
+            ..type = decodeProfileType(snap.data["type"])
+            ..name = snap.data["name"]
+            ..photo = snap.data["photo"]
+  );
 }
 
-class UserStore = _UserStore with _$UserStore;
-abstract class _UserStore with Store {
-  _UserStore (Firestore store, this.id) {
-    // TODO: subscribe to user document, populate reactive data therefrom
-    // TODO: listen to changes to reactive data, write back to firestore
-  }
-
-  /// The id of the user for whom we manage data.
-  final Uuid id;
-
-  /// The status of this user's friendships.
-  final friends = ObservableMap<Uuid, FriendStatus>();
-
-}
-
-class AppStore extends _AppStore with _$AppStore {
-
-  static Future<AppStore> create (FirebaseOptions opts) async {
-    final FirebaseApp app = await FirebaseApp.configure(name: 'tfwchat', options: opts);
-    final Firestore store = Firestore(app: app);
-    await store.settings(timestampsInSnapshotsEnabled: true);
-    final analytics = FirebaseAnalytics();
-    return AppStore._(app, store, analytics);
-  }
-
-  AppStore._ ([this.app, this.store, this.analytics]) :
-    observer = FirebaseAnalyticsObserver(analytics: analytics),
-    profiles = new ProfilesStore(store)
-  {
-    googleSignIn.onCurrentUserChanged.listen((account) async {
-      if (account == null) _clearUser();
-      else {
-        await analytics.setUserId(account.id);
-        self = await profiles._userDidAuth(account.id, account.displayName, account.photoUrl);
+class DebugStore = _DebugStore with _$DebugStore;
+abstract class _DebugStore with Store {
+  _DebugStore (this._schema) : _testersRef = _schema.store.collection("debug").document("testers") {
+    _testersRef.snapshots().listen((snap) {
+      if (snap.exists) {
+        syncSetFrom(testers, snap, "ids", uuidCodec);
+      } else {
+        _testersRef.setData({"ids": FieldValue.arrayUnion([])}, merge: true);
       }
     });
-    googleSignIn.signInSilently();
   }
 
-  /// Firebase services.
-  final FirebaseApp app;
-  final Firestore store;
-  final FirebaseAnalytics analytics;
-  final FirebaseAnalyticsObserver observer;
+  final Schema _schema;
+  final DocumentReference _testersRef;
 
-  final GoogleSignIn googleSignIn = GoogleSignIn(
-    scopes: <String>[
-      // 'email',
-      // 'https://www.googleapis.com/auth/contacts.readonly',
-    ],
-  );
+  /// Known test users.
+  final testers = ObservableSet<Uuid>();
 
-  /// Resolved profile information.
-  final ProfilesStore profiles;
-
-  /// Messages for each channel.
-  final channels = ObservableMap<Uuid, ChannelStore>();
-
-  Future<void> sendAnalyticsEvent(String name, Map<String, dynamic> params) async {
-    return await analytics.logEvent(name: name, parameters: params);
+  void createTestUser (String name) {
+    final id = Uuid.makeV1();
+    _schema.userRef(id).setData({"created": FieldValue.serverTimestamp()});
+    _schema.profileRef(id).setData({
+      "name": name,
+      "type": ProfileType.person,
+      "photo": "https://api.adorable.io/avatars/128/$id.png"
+    });
+    _testersRef.setData({"ids": FieldValue.arrayUnion([id.toString()])}, merge: true);
   }
-
-  _clearUser () {
-    self = unknownPerson;
-  }
-}
-
-abstract class _AppStore with Store {
-  @observable
-  Profile self = unknownPerson;
 }
 
 class GamesStore = _GamesStore with _$GamesStore;
@@ -236,4 +374,87 @@ abstract class _ChannelStore with Store {
 
   @override
   String toString () => "Channel[name=${profile.name}, msgs=${messages.length}]";
+}
+
+class AppStore extends _AppStore with _$AppStore {
+
+  static Future<AppStore> create (FirebaseOptions opts) async {
+    final app = await FirebaseApp.configure(name: "tfwchat", options: opts);
+    final store = Firestore(app: app);
+    final schema = new Schema(store);
+    await store.settings(timestampsInSnapshotsEnabled: true);
+    return AppStore._(app, store, schema, new UserStore(schema), FirebaseAnalytics());
+  }
+
+  AppStore._ ([this.app, this.store, this.schema, this.user, this.analytics]) :
+    observer = FirebaseAnalyticsObserver(analytics: analytics),
+    profiles = new ProfilesStore(schema, user),
+    debug = new DebugStore(schema)
+  {
+    _googleSignIn.onCurrentUserChanged.listen((account) async {
+      if (account == null) user._userDidUnauth();
+      else {
+        await analytics.setUserId(account.id);
+        final id = await user._userDidAuth(account.id);
+        await profiles._userDidAuth(id, account.displayName, account.photoUrl);
+      }
+    });
+    _googleSignIn.signInSilently();
+  }
+
+  /// Firebase services.
+  final FirebaseApp app;
+  final Firestore store;
+  final FirebaseAnalytics analytics;
+  final FirebaseAnalyticsObserver observer;
+
+  final GoogleSignIn _googleSignIn = GoogleSignIn(
+    scopes: <String>[
+      // "email",
+      // "https://www.googleapis.com/auth/contacts.readonly",
+    ],
+  );
+
+  /// Defines some basic aspects of our Firestore schema.
+  final Schema schema;
+
+  /// Tracks private info for authed user.
+  final UserStore user;
+
+  /// Tracks profile info for all users.
+  final ProfilesStore profiles;
+
+  /// Handles debug information users.
+  final DebugStore debug;
+
+  /// Messages for each channel.
+  final channels = ObservableMap<Uuid, ChannelStore>();
+
+  Future<void> sendAnalyticsEvent(String name, Map<String, dynamic> params) async {
+    return await analytics.logEvent(name: name, parameters: params);
+  }
+
+  Future<void> signIn () async {
+    try {
+      await _googleSignIn.signIn();
+    } catch (error) {
+      // TODO: stick error somewhere useful
+      print(error);
+    }
+  }
+
+  Future<void> signOut () async {
+    // if we're acting as a test user, clear that first
+    if (user.id != user.authId) {
+      user.setUser(user.authId);
+    } else try {
+      await _googleSignIn.signOut();
+    } catch (error) {
+      // TODO: stick error somewhere useful
+      print(error);
+    }
+  }
+}
+
+abstract class _AppStore with Store {
 }

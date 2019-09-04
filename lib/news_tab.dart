@@ -1,9 +1,9 @@
-import 'package:flutter/material.dart';
+import "package:flutter/material.dart";
 
-import 'stores.dart';
+import "stores.dart";
 
-class FeedTab extends StatelessWidget {
-  const FeedTab([this.app]);
+class NewsTab extends StatelessWidget {
+  const NewsTab([this.app]);
   final AppStore app;
 
   @override
@@ -12,7 +12,7 @@ class FeedTab extends StatelessWidget {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Text('TODO: Feed'),
+          Text("TODO: All the news that's fit to print"),
         ],
       ),
     );

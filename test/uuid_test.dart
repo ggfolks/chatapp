@@ -16,6 +16,6 @@ void main () {
   test('Uuid encode/decode from base62 preserves value', () {
     var uuid1 = Uuid.makeV1();
     expect(uuid1, equals(uuid1));
-    expect(Uuid.fromBase62(uuid1.toBase62()), equals(uuid1));
+    expect(Uuid.fromBase62(Uuid.toBase62(uuid1)), equals(uuid1));
   });
 }

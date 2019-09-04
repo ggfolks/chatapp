@@ -6,9 +6,14 @@ import 'uuid.dart';
 
 part 'data.g.dart';
 
-enum FriendStatus { sent, received, declined, accepted }
+// NOTE: these are persisted by index in the enum, do not reorder or delete, appending is OK
+enum FriendStatus { none, sent, received, declined, accepted }
+int encodeFriendStatus (FriendStatus status) => FriendStatus.values.indexOf(status);
+FriendStatus decodeFriendStatus (int status) => FriendStatus.values[status];
 
-enum ProfileType { person, game, channel }
+enum ProfileType { pending, person, game, channel }
+int encodeProfileType (ProfileType type) => ProfileType.values.indexOf(type);
+ProfileType decodeProfileType (int type) => ProfileType.values[type];
 
 abstract class Profiled {
   Uuid get profileId;
