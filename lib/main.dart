@@ -25,7 +25,7 @@ class Tab {
   final String title;
   final IconData icon;
   final Widget Function(AppStore app) maker;
-  const Tab(this.title, this.icon, this.maker);
+  const Tab (this.title, this.icon, this.maker);
 
   BottomNavigationBarItem navItem () =>
     BottomNavigationBarItem(icon: Icon(icon), title: Text(title));
@@ -43,7 +43,7 @@ final tabs = [
 
 class ChatApp extends StatefulWidget {
   final AppStore app;
-  ChatApp(this.app);
+  ChatApp (this.app);
   _ChatAppState createState () => _ChatAppState(app);
 }
 
@@ -57,8 +57,9 @@ class _ChatAppState extends State<ChatApp> with WidgetsBindingObserver {
 
   final AppStore app;
   final tabController = new CupertinoTabController();
+  // TODO: set default tab index to 1 or 2 if we're not logged in
 
-  @override void initState() {
+  @override void initState () {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
   }
@@ -68,16 +69,16 @@ class _ChatAppState extends State<ChatApp> with WidgetsBindingObserver {
     tabController.dispose();
   }
 
-  void didChangeAppLifecycleState (AppLifecycleState state) {
+  @override void didChangeAppLifecycleState (AppLifecycleState state) {
     if (state == AppLifecycleState.resumed) app.sendAnalyticsEvent(
-      "app_resumed", {"user": app.user.id});
+      "app_resumed", {"user": "${app.user.id}"});
   }
 
   // TODO: create app store here
   // display some sort of UI prior to async resolve of AppStore
   // also handle failure of AppStore init
 
-  @override Widget build(BuildContext ctx) {
+  @override Widget build (BuildContext ctx) {
     return MaterialApp(
       title: "tfw chat",
       theme: ThemeData(

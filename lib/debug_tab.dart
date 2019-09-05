@@ -89,7 +89,7 @@ class DebugTab extends StatelessWidget {
             RaisedButton(child: const Text("Sign out"), onPressed: () => app.signOut()),
           ])))
         ),
-        UI.makeHeader(ctx, "Debug Users"),
+        UI.makeHeader(ctx, "Test Users"),
         Observer(builder: (ctx) => SliverSafeArea(
           minimum: const EdgeInsets.all(10),
           sliver: SliverList(delegate: SliverChildListDelegate(testRows(app)))

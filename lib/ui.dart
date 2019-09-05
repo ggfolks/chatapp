@@ -68,7 +68,7 @@ abstract class AuthedTab extends AppTab {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: <Widget>[
-              Text('Login to chat'),
+              Text(unauthedMessage),
               RaisedButton(
                 child: const Text('SIGN IN'),
                 onPressed: () => app.signIn(),
@@ -82,7 +82,7 @@ abstract class AuthedTab extends AppTab {
     });
   }
 
-  String unauthedMessage ();
+  String get unauthedMessage;
 
   Widget buildAuthed (BuildContext ctx);
 }

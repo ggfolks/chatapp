@@ -18,8 +18,7 @@ class ChannelPage extends StatefulWidget {
 }
 
 Widget messagesList (AppStore app, ChannelStore channel, ScrollController scrollController) {
-  final formatter = new RelativeDateFormatter();
-  final rows = channel.aggregateMessages();
+  final formatter = new RelativeDateFormatter(), rows = channel.aggregateMessages;
   return ListView.builder(
     controller: scrollController,
     itemCount: rows.length,
@@ -93,7 +92,7 @@ class _ChannelPageState extends State<ChannelPage> {
                 controller: textController,
                 decoration: InputDecoration(
                   border: InputBorder.none,
-                  hintText: 'Message ${channel.profile.name}...'
+                  hintText: 'Message ${app.profiles.name(channel.id)}...'
                 ),
                 textInputAction: TextInputAction.send,
                 maxLines: null, // causes it to auto-expand with long text
@@ -106,8 +105,7 @@ class _ChannelPageState extends State<ChannelPage> {
             ),
             SizedBox(height: MediaQuery.of(ctx).padding.bottom)
           ]
-        )
-      )
+        ))
     );
   }
 }

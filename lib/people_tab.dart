@@ -71,5 +71,5 @@ class PeopleTab extends AuthedTab {
     }));
   }
 
-  @override String unauthedMessage () => "Log in to find friends!";
+  @override String get unauthedMessage => "Log in to find friends!";
 }

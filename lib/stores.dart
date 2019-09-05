@@ -72,11 +72,23 @@ class Schema {
   DocumentReference authRef (String fbid) => store.collection("auth").document(fbid);
   DocumentReference userRef (Uuid id) =>  store.collection("users").document(id.toString());
   DocumentReference profileRef (Uuid id) => store.collection("profiles").document(id.toString());
+  DocumentReference privatesRef (Uuid id) => store.collection("privates").document(id.toString());
+
+  Message messageFromDoc (DocumentSnapshot doc) => Message(
+    (b) => b..uuid = Uuid.fromBase62(doc.documentID)
+            ..text = doc.data["text"]
+            ..authorId = Uuid.fromBase62(doc.data["sender"])
+            ..sentTime = fromTimestamp(doc.data["sent"])
+            ..editedTime = fromTimestamp(doc.data["edited"])
+    // TODO: attachments
+  );
 }
 
 class UserStore = _UserStore with _$UserStore;
 abstract class _UserStore with Store {
   _UserStore (this._schema);
+
+  final _privChannelStores = Map<Uuid, ChannelStore>();
 
   /// The id of the user for whom we manage data.
   @observable Uuid id = Uuid.zero;
@@ -132,6 +144,12 @@ abstract class _UserStore with Store {
     }
   }
 
+  /// Returns the store for the private channel between this user and `friendId`.
+  ChannelStore privateChannel (Uuid friendId) {
+    assert(id != Uuid.zero);
+    return _privChannelStores.putIfAbsent(id, () => PrivateChannelStore(_schema, friendId, id));
+  }
+
   _updateFriendStatus (Uuid id, Uuid fid, FriendStatus status) =>
     _schema.userRef(id).updateData({"friends.$fid": encodeFriendStatus(status)});
 
@@ -143,9 +161,11 @@ abstract class _UserStore with Store {
       id = Uuid.zero;
       friends.clear();
       channels.clear();
+      _privChannelStores.clear();
       for (final fn in _onClear) fn();
       _onClear.clear();
     }
+
     if (newId != Uuid.zero) {
       id = newId;
 
@@ -163,6 +183,40 @@ abstract class _UserStore with Store {
         print("Subscription error: $error"); // TODO: better error handling
       });
       _onClear.add(() => userSub.cancel());
+
+      final privMsgsRef = _schema.privatesRef(newId).collection("msgs");
+      final pmSub = privMsgsRef.snapshots().listen((snap) {
+        print("Got msgs snap [docs=${snap.documents.length}, changes=${snap.documentChanges.length}]");
+        for (final change in snap.documentChanges) {
+          switch (change.type) {
+            case DocumentChangeType.added:
+            case DocumentChangeType.modified:
+              _gotMsgsPrivate(change.document);
+              break;
+            case DocumentChangeType.removed:
+              print("TODO: messgae was removed? ${change.document}");
+              break;
+          }
+        }
+      });
+      _onClear.add(() => pmSub.cancel());
+
+      final privSentRef = _schema.privatesRef(newId).collection("sent");
+      final psSub = privSentRef.snapshots().listen((snap) {
+        print("Got sent snap [docs=${snap.documents.length}, changes=${snap.documentChanges.length}]");
+        for (final change in snap.documentChanges) {
+          switch (change.type) {
+            case DocumentChangeType.added:
+            case DocumentChangeType.modified:
+              _gotSentPrivate(change.document);
+              break;
+            case DocumentChangeType.removed:
+              print("TODO: messgae was removed? ${change.document}");
+              break;
+          }
+        }
+      });
+      _onClear.add(() => psSub.cancel());
     }
   }
 
@@ -190,6 +244,23 @@ abstract class _UserStore with Store {
   _userDidUnauth () {
     if (id == authId) setUser(Uuid.zero);
     authId = Uuid.zero;
+  }
+
+  _gotMsgsPrivate (DocumentSnapshot doc) {
+    final msg = _schema.messageFromDoc(doc);
+    privateChannel(msg.authorId).receiveMessage(msg);
+  }
+
+  _gotSentPrivate (DocumentSnapshot doc) {
+    final recipId = Uuid.fromBase62(doc.data["recip"]);
+    privateChannel(recipId).receiveMessage(Message(
+      (b) => b..uuid = Uuid.fromBase62(doc.documentID)
+              ..text = doc.data["text"]
+              ..authorId = id
+              ..sentTime = fromTimestamp(doc.data["sent"])
+              ..editedTime = fromTimestamp(doc.data["edited"])
+      // TODO: attachments
+    ));
   }
 }
 
@@ -315,11 +386,46 @@ bool shouldAggregate (Message earlier, Message later) {
           later.sentTime.difference(earlier.sentTime).inMinutes < 5);
 }
 
-class ChannelStore = _ChannelStore with _$ChannelStore;
-abstract class _ChannelStore with Store {
-  _ChannelStore ([this.profile]);
+class ChannelStore extends _ChannelStore with _$ChannelStore {
+  ChannelStore ([this.id]);
+  final Uuid id;
 
-  final Profile profile;
+  void receiveMessage (Message msg) {
+    messages[msg.uuid] = msg;
+  }
+
+  void sendMessage (Profile self, String text) {
+    final trimmed = text.trim();
+    if (trimmed.length > 0) {
+      final msg = Message(
+        (b) => b..uuid = Uuid.makeV1()
+                ..authorId = self.uuid
+                ..text = text
+                ..sentTime = DateTime.now()
+      );
+      // add it to the local store and pass it on to be sent
+      messages[msg.uuid] = msg;
+      // TODO: have messages include a sent status & replace this message with the received one when
+      // we hear back from the server...
+      _didSendMessage(msg);
+    }
+  }
+
+  void _didSendMessage (Message msg) {}
+
+  @override
+  String toString () => "Channel[id=$id, msgs=${messages.length}]";
+}
+abstract class _ChannelStore with Store {
+  _ChannelStore () {
+    messages.observe((change) {
+      if (change.type == OperationType.add) {
+        if (latest == null || latest.sentTime.isBefore(change.newValue.sentTime)) {
+          latest = change.newValue;
+        }
+      }
+    });
+  }
 
   ObservableMap<Uuid, Message> messages = ObservableMap();
 
@@ -331,7 +437,7 @@ abstract class _ChannelStore with Store {
   /// to tell the type system about, but Dart doesn't support union types or lightweight ADTs, so
   /// dynamic it is!
   @computed
-  List<dynamic> aggregateMessages () {
+  List<dynamic> get aggregateMessages {
     // TODO: fetch messages on demand, infini-scroll through them...
     final List<Message> sorted = List.from(messages.values)
                                      ..sort((a, b) => a.sentTime.compareTo(b.sentTime));
@@ -355,25 +461,28 @@ abstract class _ChannelStore with Store {
     }
     return rows;
   }
+}
 
-  @action
-  void sendMessage (Profile self, String text) {
-    final trimmed = text.trim();
-    if (trimmed.length > 0) {
-      // TEMP: just add it to the local store
-      final msg =   Message(
-        (b) => b..uuid = Uuid.makeV1()
-                ..authorId = self.uuid
-                ..text = text
-                ..sentTime = DateTime.now()
-      );
-      messages[msg.uuid] = msg;
-      latest = msg;
-    }
+DateTime fromTimestamp (Timestamp stamp) => stamp == null ? null : stamp.toDate().toLocal();
+Timestamp toTimestamp (DateTime date) => date == null ? null : Timestamp.fromDate(date.toUtc());
+
+class PrivateChannelStore extends ChannelStore {
+  PrivateChannelStore (this._schema, Uuid friendId, this._selfId) : super(friendId);
+  final Schema _schema;
+  final Uuid _selfId;
+
+  void _didSendMessage (Message msg) {
+    final msgKey = Uuid.toBase62(msg.uuid);
+    final sent = toTimestamp(msg.sentTime), edited = toTimestamp(msg.editedTime);
+    _schema.privatesRef(id).collection("msgs").document(msgKey).setData({
+      "text": msg.text, "sender": Uuid.toBase62(msg.authorId), "sent": sent, "edited": edited
+      // TODO: attachments
+    });
+    _schema.privatesRef(_selfId).collection("sent").document(msgKey).setData({
+      "text": msg.text, "recip": Uuid.toBase62(id), "sent": sent, "edited": edited
+      // TODO: attachments
+    });
   }
-
-  @override
-  String toString () => "Channel[name=${profile.name}, msgs=${messages.length}]";
 }
 
 class AppStore extends _AppStore with _$AppStore {
