@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "733313051370",
+    "firebase_url": "https://tfwchat.firebaseio.com",
+    "project_id": "tfwchat",
+    "storage_bucket": "tfwchat.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:733313051370:android:71b7b83c475a80f28d8593",
+        "android_client_info": {
+          "package_name": "dev.tfw.chatapp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "733313051370-ndrk96tun2mdqk55fq11psdovjq0dnr8.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "dev.tfw.chatapp",
+            "certificate_hash": "207573643d9cd4d43bf59ec7feb1fd46ebd04e6d"
+          }
+        },
+        {
+          "client_id": "733313051370-k3nikbsgfa77rhvuome3m19agnaee47m.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCK-e4KbShARmGlXnH9Xre-ill0SZJX19I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "733313051370-k3nikbsgfa77rhvuome3m19agnaee47m.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "733313051370-fd2irdo39no9a306l2961m61j90d7rs5.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "dev.tfw.chatapp"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
