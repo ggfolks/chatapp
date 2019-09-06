@@ -29,6 +29,9 @@
 .pub/
 /build/
 
+# Dart code generation related
+lib/*.g.dart
+
 # Android related
 **/android/**/gradle-wrapper.jar
 **/android/.gradle
@@ -36,6 +39,7 @@
 **/android/gradlew
 **/android/gradlew.bat
 **/android/local.properties
+**/android/key.properties
 **/android/**/GeneratedPluginRegistrant.java
 
 # iOS/XCode related
@@ -46,12 +50,12 @@
 **/ios/**/*.perspectivev3
 **/ios/**/*sync/
 **/ios/**/.sconsign.dblite
+**/ios/**/.symlinks/
 **/ios/**/.tags*
 **/ios/**/.vagrant/
 **/ios/**/DerivedData/
 **/ios/**/Icon?
 **/ios/**/Pods/
-**/ios/**/.symlinks/
 **/ios/**/profile
 **/ios/**/xcuserdata
 **/ios/.generated/
@@ -61,8 +65,9 @@
 **/ios/Flutter/app.flx
 **/ios/Flutter/app.zip
 **/ios/Flutter/flutter_assets/
-**/ios/ServiceDefinitions.json
+**/ios/Flutter/flutter_export_environment.sh
 **/ios/Runner/GeneratedPluginRegistrant.*
+**/ios/ServiceDefinitions.json
 
 # Exceptions to above rules.
 !**/ios/**/default.mode1v3
@@ -70,6 +75,3 @@
 !**/ios/**/default.pbxuser
 !**/ios/**/default.perspectivev3
 !/packages/flutter_tools/test/data/dart_dependencies_test/**/.packages
-lib/*.g.dart
-ios/Flutter/flutter_export_environment.sh
-android/app/key.properties
