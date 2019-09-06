@@ -10,6 +10,7 @@ import "people_tab.dart";
 import "debug_tab.dart";
 
 Future<void> main () async {
+  WidgetsFlutterBinding.ensureInitialized();
   final app = await AppStore.create(FirebaseOptions(
     projectID: "tfwchat",
     googleAppID: "1:733313051370:ios:a49e7f8aa716dfa6",
