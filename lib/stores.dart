@@ -221,7 +221,7 @@ abstract class _UserStore with Store {
     }
   }
 
-  Future<Uuid> _userDidAuth (String fbid) async {
+  Future<Uuid> userDidAuth (String fbid) async {
     // see if we already have a mapping from the Firebase id to tfw uuid
     final authRef = _schema.authRef(fbid);
     var id = Uuid.zero;
@@ -329,7 +329,7 @@ abstract class _ProfilesStore with Store {
       "type": encodeProfileType(type), "name": name, "photo": photo
     }, merge: true);
 
-  void _userDidAuth (Uuid id, String name, String photo) async {
+  void userDidAuth (Uuid id, String name, String photo) async {
     // TEMP: update our profile data with the latest Googly bits
     updateProfile(id, ProfileType.person, name, photo);
   }
@@ -506,8 +506,8 @@ class AppStore extends _AppStore with _$AppStore {
       if (account == null) user._userDidUnauth();
       else {
         await analytics.setUserId(account.id);
-        final id = await user._userDidAuth(account.id);
-        await profiles._userDidAuth(id, account.displayName, account.photoUrl);
+        final id = await user.userDidAuth(account.id);
+        await profiles.userDidAuth(id, account.displayName, account.photoUrl);
       }
     });
     _googleSignIn.signInSilently();
@@ -556,16 +556,18 @@ class AppStore extends _AppStore with _$AppStore {
   }
 
   Future<void> signOut () async {
-    // TODO: if we're signed in via username/password we need to sign out differently?
-
     // if we're acting as a test user, clear that first
     if (user.id != user.authId) {
       user.setUser(user.authId);
-    } else try {
-      await _googleSignIn.signOut();
-    } catch (error) {
-      // TODO: stick error somewhere useful
-      print(error);
+    } else if (_googleSignIn.currentUser != null) {
+      try {
+        await _googleSignIn.signOut();
+      } catch (error) {
+        // TODO: stick error somewhere useful
+        print(error);
+      }
+    } else {
+      await auth.signOut();
     }
   }
 }

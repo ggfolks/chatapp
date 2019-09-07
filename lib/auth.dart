@@ -75,10 +75,16 @@ class _EmailPasswordFormState extends State<EmailPasswordForm> {
 
   void _signIn () async {
     try {
-      await app.auth.signInWithEmailAndPassword(
+      final result = await app.auth.signInWithEmailAndPassword(
         email: _emailController.text,
         password: _passwordController.text,
-      );
+      ), user = result.user;
+      if (user != null) {
+        final id = await app.user.userDidAuth(user.uid);
+        final displayName = user.displayName ?? "Tester";
+        final photoUrl = user.photoUrl ?? "https://api.adorable.io/avatars/128/${user.uid}.png";
+        app.profiles.userDidAuth(id, displayName, photoUrl);
+      }
     } on PlatformException catch (err) {
       _state.status = _decodeError(err.code);
     }
