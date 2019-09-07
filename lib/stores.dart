@@ -568,6 +568,7 @@ class AppStore extends _AppStore with _$AppStore {
       }
     } else {
       await auth.signOut();
+      user._userDidUnauth();
     }
   }
 }
