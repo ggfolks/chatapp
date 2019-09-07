@@ -1,10 +1,12 @@
-import 'package:flutter/cupertino.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter_mobx/flutter_mobx.dart';
+import "package:flutter/cupertino.dart";
+import "package:flutter/material.dart";
+import "package:flutter_mobx/flutter_mobx.dart";
+import "package:flutter_auth_buttons/flutter_auth_buttons.dart";
 
-import 'uuid.dart';
-import 'data.dart';
-import 'stores.dart';
+import "uuid.dart";
+import "data.dart";
+import "stores.dart";
+import "auth.dart";
 
 class _HeaderDelegate extends SliverPersistentHeaderDelegate {
   _HeaderDelegate([this.child]);
@@ -62,19 +64,36 @@ abstract class AuthedTab extends AppTab {
   AuthedTab (AppStore app) : super(app);
 
   @override Widget build (BuildContext ctx) {
+    final theme = Theme.of(ctx);
     return Observer(builder: (ctx) {
       if (app.user.id == Uuid.zero) {
-        return Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
+        return SafeArea(
+          minimum: EdgeInsets.all(15),
+          child: Flex(
+            direction: Axis.vertical,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
-              Text(unauthedMessage),
-              RaisedButton(
-                child: const Text('SIGN IN'),
-                onPressed: () => app.signIn(),
+              Spacer(),
+              Text(unauthedMessage, textAlign: TextAlign.center, style: theme.textTheme.display1),
+              Spacer(),
+              UI.header(theme, "Sign in:"),
+              Container(
+                margin: EdgeInsets.only(top: 15),
+                child: Column(
+                  children: [
+                    GoogleSignInButton(onPressed: () => app.signIn()),
+                  ]
+                )
               ),
+              Spacer(),
+              UI.header(theme, "Sign in with email"),
+              Container(
+                margin: EdgeInsets.only(left: 15, right: 15),
+                child: EmailPasswordForm(app)
+              ),
+              Spacer(),
             ],
-          ),
+          )
         );
       } else {
         return buildAuthed(ctx);
@@ -89,17 +108,17 @@ abstract class AuthedTab extends AppTab {
 
 class UI {
 
-  static SliverPersistentHeader makeHeader (BuildContext ctx, String headerText) {
-    final theme = Theme.of(ctx);
-    return SliverPersistentHeader(
+  static Widget header (ThemeData theme, String text) => Container(
+    padding: const EdgeInsets.only(top: 10, left: 8, right: 8),
+    decoration: BoxDecoration(border: Border(
+      bottom: BorderSide(width: 1.0, color: theme.dividerColor),
+    )),
+    child: Text(text, textAlign: TextAlign.left, style: theme.textTheme.headline)
+  );
+
+  static SliverPersistentHeader makeHeader (BuildContext ctx, String headerText) =>
+    SliverPersistentHeader(
       // pinned: true,
-      delegate: _HeaderDelegate(Container(
-        padding: const EdgeInsets.only(top: 10, left: 8, right: 8),
-        decoration: BoxDecoration(border: Border(
-          bottom: BorderSide(width: 1.0, color: theme.dividerColor),
-        )),
-        child: Text(headerText, textAlign: TextAlign.left, style: theme.textTheme.headline)
-      )),
+      delegate: _HeaderDelegate(header(Theme.of(ctx), headerText)),
     );
-  }
 }

@@ -1,6 +1,7 @@
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:firebase_analytics/firebase_analytics.dart";
 import "package:firebase_analytics/observer.dart";
+import "package:firebase_auth/firebase_auth.dart";
 import "package:firebase_core/firebase_core.dart";
 import "package:google_sign_in/google_sign_in.dart";
 import "package:mobx/mobx.dart";
@@ -492,10 +493,11 @@ class AppStore extends _AppStore with _$AppStore {
     final store = Firestore(app: app);
     final schema = new Schema(store);
     await store.settings(timestampsInSnapshotsEnabled: true);
-    return AppStore._(app, store, schema, new UserStore(schema), FirebaseAnalytics());
+    return AppStore._(app, FirebaseAuth.fromApp(app), store, schema, new UserStore(schema),
+                      FirebaseAnalytics());
   }
 
-  AppStore._ ([this.app, this.store, this.schema, this.user, this.analytics]) :
+  AppStore._ ([this.app, this.auth, this.store, this.schema, this.user, this.analytics]) :
     observer = FirebaseAnalyticsObserver(analytics: analytics),
     profiles = new ProfilesStore(schema, user),
     debug = new DebugStore(schema)
@@ -513,6 +515,7 @@ class AppStore extends _AppStore with _$AppStore {
 
   /// Firebase services.
   final FirebaseApp app;
+  final FirebaseAuth auth;
   final Firestore store;
   final FirebaseAnalytics analytics;
   final FirebaseAnalyticsObserver observer;
@@ -553,6 +556,8 @@ class AppStore extends _AppStore with _$AppStore {
   }
 
   Future<void> signOut () async {
+    // TODO: if we're signed in via username/password we need to sign out differently?
+
     // if we're acting as a test user, clear that first
     if (user.id != user.authId) {
       user.setUser(user.authId);
