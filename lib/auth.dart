@@ -43,6 +43,7 @@ class _EmailPasswordFormState extends State<EmailPasswordForm> {
             controller: _passwordController,
             decoration: InputDecoration(labelText: "Password"),
             validator: (String value) => value.isEmpty ? "Please enter your password" : null,
+            obscureText: true,
           ),
           Container(
             padding: const EdgeInsets.symmetric(vertical: 16.0),
