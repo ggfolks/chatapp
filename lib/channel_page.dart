@@ -95,6 +95,7 @@ class _ChannelPageState extends State<ChannelPage> {
                   hintText: 'Message ${app.profiles.name(channel.id)}...'
                 ),
                 textInputAction: TextInputAction.send,
+                textCapitalization: TextCapitalization.sentences,
                 maxLines: null, // causes it to auto-expand with long text
                 onSubmitted: (text) {
                   channel.sendMessage(app.profiles.self, text);
