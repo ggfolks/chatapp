@@ -1,3 +1,5 @@
+import "dart:async";
+
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:firebase_analytics/firebase_analytics.dart";
 import "package:firebase_analytics/observer.dart";
@@ -71,9 +73,10 @@ class Schema {
   Schema(this.store);
 
   DocumentReference authRef (String fbid) => store.collection("auth").document(fbid);
-  DocumentReference userRef (Uuid id) =>  store.collection("users").document(id.toString());
-  DocumentReference profileRef (Uuid id) => store.collection("profiles").document(id.toString());
-  DocumentReference privatesRef (Uuid id) => store.collection("privates").document(id.toString());
+  DocumentReference userRef (Uuid id) =>  store.collection("users").document(Uuid.toBase62(id));
+  DocumentReference profileRef (Uuid id) => store.collection("profiles").document(Uuid.toBase62(id));
+  DocumentReference privatesRef (Uuid id) => store.collection("privates").document(Uuid.toBase62(id));
+  DocumentReference channelRef (Uuid id) => store.collection("channels").document(Uuid.toBase62(id));
 
   Message messageFromDoc (DocumentSnapshot doc) => Message(
     (b) => b..uuid = Uuid.fromBase62(doc.documentID)
@@ -90,6 +93,7 @@ abstract class _UserStore with Store {
   _UserStore (this._schema);
 
   final _privChannelStores = Map<Uuid, ChannelStore>();
+  final _channelStores = Map<Uuid, ChannelStore>();
 
   /// The id of the user for whom we manage data.
   @observable Uuid id = Uuid.zero;
@@ -102,7 +106,7 @@ abstract class _UserStore with Store {
   final friends = ObservableMap<Uuid, FriendStatus>();
 
   /// The channels to which this user is subscribed.
-  final channels = ObservableMap<Uuid, FriendStatus>();
+  final channels = ObservableSet<Uuid>();
 
   void inviteFriend (Uuid fid) {
     final status = friends[fid];
@@ -145,6 +149,16 @@ abstract class _UserStore with Store {
     }
   }
 
+  /// Returns the store for the game channel with `id`.
+  ChannelStore gameChannel (Uuid id) {
+    assert(id != Uuid.zero);
+    return _channelStores.putIfAbsent(id, () {
+      final store = GameChannelStore(_schema, id);
+      _onClear.add(() => store.dispose());
+      return store;
+    });
+  }
+
   /// Returns the store for the private channel between this user and `friendId`.
   ChannelStore privateChannel (Uuid friendId) {
     assert(id != Uuid.zero);
@@ -163,6 +177,7 @@ abstract class _UserStore with Store {
       friends.clear();
       channels.clear();
       _privChannelStores.clear();
+      _channelStores.clear();
       for (final fn in _onClear) fn();
       _onClear.clear();
     }
@@ -174,19 +189,21 @@ abstract class _UserStore with Store {
       // _onClear.add(syncMapTo(friends, userRef, 'friends', Uuid.toBase62, encodeFriendStatus));
       final userSub = userRef.snapshots().listen((snap) {
         if (!snap.exists) {
-          userRef.setData({"friends": {}, "created": FieldValue.serverTimestamp()}, merge: true);
+          userRef.setData({
+            "friends": {},
+            "channels": FieldValue.arrayUnion([]),
+            "created": FieldValue.serverTimestamp()
+          }, merge: true);
         } else {
-          // if (snap.data["channels"] == null) userRef.updateData({"channels": {}});
           syncMapFrom(friends, snap, "friends", uuidCodec, friendStatusCodec);
-          // TODO: ChannelSyncer
+          syncSetFrom(channels, snap, "channels", uuidCodec);
         }
       }, onError: (error) {
         print("Subscription error: $error"); // TODO: better error handling
       });
       _onClear.add(() => userSub.cancel());
 
-      final privMsgsRef = _schema.privatesRef(newId).collection("msgs");
-      final pmSub = privMsgsRef.snapshots().listen((snap) {
+      final pmsub = _schema.privatesRef(newId).collection("msgs").snapshots().listen((snap) {
         print("Got msgs snap [docs=${snap.documents.length}, changes=${snap.documentChanges.length}]");
         for (final change in snap.documentChanges) {
           switch (change.type) {
@@ -195,15 +212,14 @@ abstract class _UserStore with Store {
               _gotMsgsPrivate(change.document);
               break;
             case DocumentChangeType.removed:
-              print("TODO: messgae was removed? ${change.document}");
+              print("TODO: message was removed? ${change.document}");
               break;
           }
         }
       });
-      _onClear.add(() => pmSub.cancel());
+      _onClear.add(() => pmsub.cancel());
 
-      final privSentRef = _schema.privatesRef(newId).collection("sent");
-      final psSub = privSentRef.snapshots().listen((snap) {
+      final pssub = _schema.privatesRef(newId).collection("sent").snapshots().listen((snap) {
         print("Got sent snap [docs=${snap.documents.length}, changes=${snap.documentChanges.length}]");
         for (final change in snap.documentChanges) {
           switch (change.type) {
@@ -212,12 +228,12 @@ abstract class _UserStore with Store {
               _gotSentPrivate(change.document);
               break;
             case DocumentChangeType.removed:
-              print("TODO: messgae was removed? ${change.document}");
+              print("TODO: message was removed? ${change.document}");
               break;
           }
         }
       });
-      _onClear.add(() => psSub.cancel());
+      _onClear.add(() => pssub.cancel());
     }
   }
 
@@ -344,7 +360,12 @@ abstract class _ProfilesStore with Store {
 
 class DebugStore = _DebugStore with _$DebugStore;
 abstract class _DebugStore with Store {
-  _DebugStore (this._schema) : _testersRef = _schema.store.collection("debug").document("testers") {
+  final Schema _schema;
+  final DocumentReference _testersRef;
+
+  _DebugStore (this._schema)
+    : _testersRef = _schema.store.collection("debug").document("testers")
+  {
     _testersRef.snapshots().listen((snap) {
       if (snap.exists) {
         syncSetFrom(testers, snap, "ids", uuidCodec);
@@ -353,9 +374,6 @@ abstract class _DebugStore with Store {
       }
     });
   }
-
-  final Schema _schema;
-  final DocumentReference _testersRef;
 
   /// Known test users.
   final testers = ObservableSet<Uuid>();
@@ -414,8 +432,7 @@ class ChannelStore extends _ChannelStore with _$ChannelStore {
 
   void _didSendMessage (Message msg) {}
 
-  @override
-  String toString () => "Channel[id=$id, msgs=${messages.length}]";
+  @override String toString () => "Channel[id=$id, msgs=${messages.length}]";
 }
 abstract class _ChannelStore with Store {
   _ChannelStore () {
@@ -430,15 +447,13 @@ abstract class _ChannelStore with Store {
 
   ObservableMap<Uuid, Message> messages = ObservableMap();
 
-  @observable
-  Message latest;
+  @observable Message latest;
 
   /// Groups messages by date & aggregates repeated messages by the same author (within a time
   /// cutoff) into message lists. Returns a list of `DateTime|List<Message>` which it would be great
   /// to tell the type system about, but Dart doesn't support union types or lightweight ADTs, so
   /// dynamic it is!
-  @computed
-  List<dynamic> get aggregateMessages {
+  @computed List<dynamic> get aggregateMessages {
     // TODO: fetch messages on demand, infini-scroll through them...
     final List<Message> sorted = List.from(messages.values)
                                      ..sort((a, b) => a.sentTime.compareTo(b.sentTime));
@@ -467,20 +482,54 @@ abstract class _ChannelStore with Store {
 DateTime fromTimestamp (Timestamp stamp) => stamp == null ? null : stamp.toDate().toLocal();
 Timestamp toTimestamp (DateTime date) => date == null ? null : Timestamp.fromDate(date.toUtc());
 
+class GameChannelStore extends ChannelStore {
+  final Schema _schema;
+  final _onClear = List<Dispose>();
+
+  GameChannelStore (this._schema, Uuid id) : super(id) {
+    final msub = _schema.channelRef(id).collection("msgs").snapshots().listen((snap) {
+      print("Got msgs snap [docs=${snap.documents.length}, changes=${snap.documentChanges.length}]");
+      for (final change in snap.documentChanges) {
+        switch (change.type) {
+          case DocumentChangeType.added:
+          case DocumentChangeType.modified:
+            receiveMessage(_schema.messageFromDoc(change.document));
+            break;
+          case DocumentChangeType.removed:
+            print("TODO: message was removed? ${change.document}");
+            break;
+        }
+      }
+    });
+    _onClear.add(() => msub.cancel());
+  }
+
+  void _didSendMessage (Message msg) {
+    final msgKey = Uuid.toBase62(msg.uuid), sent = toTimestamp(msg.sentTime);
+    _schema.channelRef(id).collection("msgs").document(msgKey).setData({
+      "text": msg.text, "sender": Uuid.toBase62(msg.authorId), "sent": sent
+      // TODO: attachments
+    });
+  }
+
+  void dispose () {
+    _onClear.forEach((disp) => disp());
+  }
+}
+
 class PrivateChannelStore extends ChannelStore {
   PrivateChannelStore (this._schema, Uuid friendId, this._selfId) : super(friendId);
   final Schema _schema;
   final Uuid _selfId;
 
   void _didSendMessage (Message msg) {
-    final msgKey = Uuid.toBase62(msg.uuid);
-    final sent = toTimestamp(msg.sentTime), edited = toTimestamp(msg.editedTime);
+    final msgKey = Uuid.toBase62(msg.uuid), sent = toTimestamp(msg.sentTime);
     _schema.privatesRef(id).collection("msgs").document(msgKey).setData({
-      "text": msg.text, "sender": Uuid.toBase62(msg.authorId), "sent": sent, "edited": edited
+      "text": msg.text, "sender": Uuid.toBase62(msg.authorId), "sent": sent
       // TODO: attachments
     });
     _schema.privatesRef(_selfId).collection("sent").document(msgKey).setData({
-      "text": msg.text, "recip": Uuid.toBase62(id), "sent": sent, "edited": edited
+      "text": msg.text, "recip": Uuid.toBase62(id), "sent": sent
       // TODO: attachments
     });
   }

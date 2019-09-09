@@ -53,9 +53,9 @@ class ChatTab extends AuthedTab {
   @override Widget buildAuthed (BuildContext ctx) {
     // TODO: if channel data is not yet available, show a loading indicator?
     final slivers = List<Widget>();
-    // slivers.add(UI.makeHeader(ctx, "Channels"));
-    // slivers.add(makeChannelList(ctx, (cs) => cs.profile.type != ProfileType.person,
-    //                             "Subscribe to game channels on the News or Game tab."));
+    slivers.add(UI.makeHeader(ctx, "Channels"));
+    final channels = app.user.channels.map((id) => app.user.gameChannel(id)).toList();
+    slivers.add(makeChannelList(ctx, channels, "Subscribe to game channels on the Game tab."));
     slivers.add(UI.makeHeader(ctx, "Friends"));
     final privates = app.user.friends.keys
                         .where((id) => app.user.friends[id] == FriendStatus.accepted)
