@@ -1,10 +1,10 @@
 import "package:flutter/cupertino.dart";
-import 'package:flutter/material.dart';
-import 'package:flutter_mobx/flutter_mobx.dart';
+import "package:flutter/material.dart";
+import "package:flutter_mobx/flutter_mobx.dart";
 
-import 'data.dart';
-import 'stores.dart';
-import 'ui.dart';
+import "data.dart";
+import "stores.dart";
+import "ui.dart";
 
 class PeopleTab extends AuthedTab {
   PeopleTab (AppStore app) : super(app);
@@ -37,7 +37,9 @@ class PeopleTab extends AuthedTab {
             declined.add(new ProfileRow(p)..addIcon(CupertinoIcons.clear, () {})); // TODO: undecline?
             break;
           case FriendStatus.accepted:
-            friends.add(new ProfileRow(p)..addIcon(CupertinoIcons.clear, () {})); // TODO: unfriend?
+            friends.add(new ProfileRow(p)
+                   ..addIcon(CupertinoIcons.conversation_bubble, () => UI.navigateToFriend(ctx, app, p))
+                   ..addIcon(CupertinoIcons.clear, () {})); // TODO: confirm unfriend
             break;
         }
       }

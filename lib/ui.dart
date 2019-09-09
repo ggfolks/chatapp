@@ -3,10 +3,11 @@ import "package:flutter/material.dart";
 import "package:flutter_mobx/flutter_mobx.dart";
 import "package:flutter_auth_buttons/flutter_auth_buttons.dart";
 
-import "uuid.dart";
+import "auth.dart";
+import "channel_page.dart";
 import "data.dart";
 import "stores.dart";
-import "auth.dart";
+import "uuid.dart";
 
 class _HeaderDelegate extends SliverPersistentHeaderDelegate {
   _HeaderDelegate([this.child]);
@@ -121,4 +122,12 @@ class UI {
       // pinned: true,
       delegate: _HeaderDelegate(header(Theme.of(ctx), headerText)),
     );
+
+
+  static navigateToFriend (BuildContext ctx, AppStore app, Profile friend) => Navigator.of(ctx).push(
+    CupertinoPageRoute<void>(
+      title: friend.name,
+      builder: (ctx) => ChannelPage(app, app.user.privateChannel(friend.uuid))
+    )
+  );
 }
