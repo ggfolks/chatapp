@@ -10,7 +10,7 @@ import "ui.dart";
 int friendCount (Map<Uuid, FriendStatus> friends, FriendStatus status) =>
   friends.values.where((s) => s == status).length;
 
-List<Widget> testRows (AppStore app) {
+List<Widget> testUserRows (AppStore app) {
   final rows = List<Widget>();
   for (final id in app.debug.testers) {
     app.profiles.resolveProfile(id);
@@ -30,6 +30,27 @@ List<Widget> testRows (AppStore app) {
   }
   if (rows.length == 0) rows.add(Text("No test users."));
   rows.add(TestUserAdder(app));
+  return rows;
+}
+
+List<Widget> testChannelRows (AppStore app) {
+  final rows = List<Widget>();
+  app.profiles.resolveAllChannels();
+  for (final id in app.profiles.channels.keys) {
+    rows.add(Observer(builder: (ctx) {
+      final profile = app.profiles.profiles[id];
+      final amMember = app.user.channels.contains(id);
+      return new ProfileRow(profile)..addIcon(
+        amMember ? CupertinoIcons.minus_circled : CupertinoIcons.plus_circled,
+        () {
+          if (amMember) app.user.leaveChannel(id);
+          else app.user.joinChannel(id);
+        }
+      );
+    }));
+  }
+  if (rows.length == 0) rows.add(Text("No channels."));
+  rows.add(TestChannelAdder(app));
   return rows;
 }
 
@@ -68,6 +89,41 @@ class _TestUserAdderState extends State<TestUserAdder> {
   }
 }
 
+class TestChannelAdder extends StatefulWidget {
+  TestChannelAdder (this.app);
+  final AppStore app;
+  @override _TestChannelAdderState createState () => _TestChannelAdderState(app);
+}
+
+class _TestChannelAdderState extends State<TestChannelAdder> {
+  _TestChannelAdderState(this.app);
+  final AppStore app;
+  final textController = TextEditingController();
+
+  @override void dispose () {
+    textController.dispose();
+    super.dispose();
+  }
+
+  @override Widget build (BuildContext ctx) {
+    return Row(
+      children: [
+        Expanded(child: TextField(
+          controller: textController,
+          decoration: InputDecoration(border: InputBorder.none, hintText: "Test channel name"),
+        )),
+        RaisedButton(child: const Text("Create"), onPressed: () {
+          final name = textController.text.trim();
+          if (name.length > 0) {
+            textController.text = "";
+            app.debug.createTestChannel(name);
+          }
+        })
+      ]
+    );
+  }
+}
+
 class DebugTab extends StatelessWidget {
   const DebugTab([this.app]);
   final AppStore app;
@@ -92,7 +148,12 @@ class DebugTab extends StatelessWidget {
         UI.makeHeader(ctx, "Test Users"),
         Observer(builder: (ctx) => SliverSafeArea(
           minimum: const EdgeInsets.all(10),
-          sliver: SliverList(delegate: SliverChildListDelegate(testRows(app)))
+          sliver: SliverList(delegate: SliverChildListDelegate(testUserRows(app)))
+        )),
+        UI.makeHeader(ctx, "Test Channels"),
+        Observer(builder: (ctx) => SliverSafeArea(
+          minimum: const EdgeInsets.all(10),
+          sliver: SliverList(delegate: SliverChildListDelegate(testChannelRows(app)))
         )),
       ]),
     );

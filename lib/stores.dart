@@ -259,6 +259,17 @@ abstract class _UserStore with Store {
     return id;
   }
 
+  joinChannel (Uuid cid) {
+    assert(id != Uuid.zero);
+    _schema.userRef(id).setData({
+      "channels": FieldValue.arrayUnion([Uuid.toBase62(cid)])}, merge: true);
+  }
+  leaveChannel (Uuid cid) {
+    assert(id != Uuid.zero);
+    _schema.userRef(id).setData({
+      "channels": FieldValue.arrayRemove([Uuid.toBase62(cid)])}, merge: true);
+  }
+
   _userDidUnauth () {
     if (id == authId) setUser(Uuid.zero);
     authId = Uuid.zero;
@@ -296,6 +307,9 @@ abstract class _ProfilesStore with Store {
   /// Resolved profile information.
   final profiles = ObservableMap<Uuid, Profile>();
 
+  /// Resolved channel information.
+  final channels = ObservableMap<Uuid, Profile>();
+
   final Schema _schema;
   final UserStore _user;
 
@@ -325,8 +339,12 @@ abstract class _ProfilesStore with Store {
               ..photo = "https://api.adorable.io/avatars/128/pending.png" // TODO
     );
     // TODO: maintain a set of queries so that we get profile updates?
-    final profile = await _schema.profileRef(id).get();
-    if (profile.exists) profiles[id] = _makeProfile(id, profile);
+    final prodoc = await _schema.profileRef(id).get();
+    if (prodoc.exists) {
+      final profile = _makeProfile(id, prodoc);
+      profiles[id] = profile;
+      if (profile.type == ProfileType.channel) channels[id] = profile;
+    }
     else print("Asked to resolve non-existent profile: $id");
   }
 
@@ -334,10 +352,20 @@ abstract class _ProfilesStore with Store {
   /// tab because I don't want to bother with implementing incremental search and blah blah.
   resolveAllPeople () async {
     final people = await _schema.store.collection("profiles").
-      where("type", isEqualTo: 1).getDocuments();
+      where("type", isEqualTo: encodeProfileType(ProfileType.person)).getDocuments();
     for (final doc in people.documents) {
       final id = Uuid.fromBase62(doc.documentID);
       profiles[id] = _makeProfile(id, doc);
+    }
+  }
+
+  resolveAllChannels () async {
+    final result = await _schema.store.collection("profiles").
+      where("type", isEqualTo: encodeProfileType(ProfileType.channel)).getDocuments();
+    for (final doc in result.documents) {
+      final id = Uuid.fromBase62(doc.documentID);
+      profiles[id] = _makeProfile(id, doc);
+      channels[id] = _makeProfile(id, doc);
     }
   }
 
@@ -388,6 +416,17 @@ abstract class _DebugStore with Store {
       "photo": "https://api.adorable.io/avatars/128/$id.png"
     });
     _testersRef.setData({"ids": FieldValue.arrayUnion([id.toString()])}, merge: true);
+  }
+
+  Uuid createTestChannel (String name) {
+    final id = Uuid.makeV1();
+    _schema.channelRef(id).setData({"created": FieldValue.serverTimestamp()});
+    _schema.profileRef(id).setData({
+      "name": name,
+      "type": encodeProfileType(ProfileType.channel),
+      "photo": "https://api.adorable.io/avatars/128/$id.png"
+    });
+    return id;
   }
 }
 
