@@ -46,6 +46,27 @@ flutter packages pub run build_runner build
 
 One can replace `build` with `watch` to have the codegen process run automatically on file change.
 
+### Releasing
+
+iOS TL;DR:
+
+```
+flutter build ios
+open ios/Runner.xcworkspace
+```
+
+Make sure you're building for "Generic iOS Device", then do Product -> Archive and follow the
+prompts. Read the [full docs](https://flutter.dev/docs/deployment/ios) for details.
+
+Android TL;DR:
+
+```
+flutter build appbundle
+```
+
+Then upload `build/app/outputs/bundle/release/app.aab` via the Google Play console. Android also
+has [a page](https://flutter.dev/docs/deployment/android) with all the gory details.
+
 ## License
 
 The tfw app code is licensed under the MIT License. See the [LICENSE](LICENSE.md) file for details.
