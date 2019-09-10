@@ -162,7 +162,8 @@ abstract class _UserStore with Store {
   /// Returns the store for the private channel between this user and `friendId`.
   ChannelStore privateChannel (Uuid friendId) {
     assert(id != Uuid.zero);
-    return _privChannelStores.putIfAbsent(id, () => PrivateChannelStore(_schema, friendId, id));
+    return _privChannelStores.putIfAbsent(
+      friendId, () => PrivateChannelStore(_schema, friendId, id));
   }
 
   _updateFriendStatus (Uuid id, Uuid fid, FriendStatus status) =>
