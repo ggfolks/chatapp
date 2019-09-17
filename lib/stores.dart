@@ -591,12 +591,23 @@ class AppStore extends _AppStore with _$AppStore {
     profiles = new ProfilesStore(schema, user),
     debug = new DebugStore(schema)
   {
-    _googleSignIn.onCurrentUserChanged.listen((account) async {
-      if (account == null) user._userDidUnauth();
+    auth.onAuthStateChanged.listen((fbuser) async {
+      if (fbuser == null) user._userDidUnauth();
       else {
-        await analytics.setUserId(account.id);
-        final id = await user.userDidAuth(account.id);
-        await profiles.userDidAuth(id, account.displayName, account.photoUrl);
+        await analytics.setUserId(fbuser.uid);
+        final id = await user.userDidAuth(fbuser.uid);
+        // update our profile with the latest bits from Firebase auth
+        final displayName = fbuser.displayName ?? "Tester";
+        final photoUrl = fbuser.photoUrl ?? "https://api.adorable.io/avatars/128/${id}.png";
+        profiles.userDidAuth(id, displayName, photoUrl);
+      }
+    });
+    _googleSignIn.onCurrentUserChanged.listen((account) async {
+      if (account != null) {
+        final gauth = await account.authentication;
+        // TODO: catch platform exception here?
+        await auth.signInWithCredential(GoogleAuthProvider.getCredential(
+          idToken: gauth.idToken, accessToken: gauth.accessToken));
       }
     });
     _googleSignIn.signInSilently();
@@ -635,7 +646,7 @@ class AppStore extends _AppStore with _$AppStore {
     return await analytics.logEvent(name: name, parameters: params);
   }
 
-  Future<void> signIn () async {
+  Future<void> signInWithGoogle () async {
     try {
       await _googleSignIn.signIn();
     } catch (error) {
@@ -648,14 +659,15 @@ class AppStore extends _AppStore with _$AppStore {
     // if we're acting as a test user, clear that first
     if (user.id != user.authId) {
       user.setUser(user.authId);
-    } else if (_googleSignIn.currentUser != null) {
-      try {
-        await _googleSignIn.signOut();
-      } catch (error) {
-        // TODO: stick error somewhere useful
-        print(error);
-      }
     } else {
+      if (_googleSignIn.currentUser != null) {
+        try {
+          await _googleSignIn.signOut();
+        } catch (error) {
+          // TODO: stick error somewhere useful
+          print(error);
+        }
+      }
       await auth.signOut();
       user._userDidUnauth();
     }

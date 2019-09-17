@@ -82,7 +82,7 @@ abstract class AuthedTab extends AppTab {
                 margin: EdgeInsets.only(top: 15),
                 child: Column(
                   children: [
-                    GoogleSignInButton(onPressed: () => app.signIn()),
+                    GoogleSignInButton(onPressed: () => app.signInWithGoogle()),
                   ]
                 )
               ),
