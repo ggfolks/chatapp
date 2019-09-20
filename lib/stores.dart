@@ -1,10 +1,12 @@
 import "dart:async";
+import "dart:io";
 
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:firebase_analytics/firebase_analytics.dart";
 import "package:firebase_analytics/observer.dart";
 import "package:firebase_auth/firebase_auth.dart";
 import "package:firebase_core/firebase_core.dart";
+import 'package:firebase_messaging/firebase_messaging.dart';
 import "package:google_sign_in/google_sign_in.dart";
 import "package:mobx/mobx.dart";
 
@@ -90,8 +92,11 @@ class Schema {
 
 class UserStore = _UserStore with _$UserStore;
 abstract class _UserStore with Store {
-  _UserStore (this._schema);
+  _UserStore (this._schema, this._messaging);
 
+  final Schema _schema;
+  final FirebaseMessaging _messaging;
+  final _onClear = List<Dispose>();
   final _privChannelStores = Map<Uuid, ChannelStore>();
   final _channelStores = Map<Uuid, ChannelStore>();
 
@@ -169,9 +174,6 @@ abstract class _UserStore with Store {
   _updateFriendStatus (Uuid id, Uuid fid, FriendStatus status) =>
     _schema.userRef(id).updateData({"friends.$fid": encodeFriendStatus(status)});
 
-  final Schema _schema;
-  final _onClear = List<Dispose>();
-
   setUser (Uuid newId) {
     if (id != Uuid.zero) {
       id = Uuid.zero;
@@ -181,6 +183,8 @@ abstract class _UserStore with Store {
       _channelStores.clear();
       for (final fn in _onClear) fn();
       _onClear.clear();
+
+      // TODO: clear messaging token from user record
     }
 
     if (newId != Uuid.zero) {
@@ -199,6 +203,8 @@ abstract class _UserStore with Store {
           syncMapFrom(friends, snap, "friends", uuidCodec, friendStatusCodec);
           syncSetFrom(channels, snap, "channels", uuidCodec);
         }
+        // only save device tokens for "real" authenticated users, not test users
+        if (newId == authId) _saveDeviceToken(snap);
       }, onError: (error) {
         print("Subscription error: $error"); // TODO: better error handling
       });
@@ -261,13 +267,21 @@ abstract class _UserStore with Store {
 
   joinChannel (Uuid cid) {
     assert(id != Uuid.zero);
-    _schema.userRef(id).setData({
-      "channels": FieldValue.arrayUnion([Uuid.toBase62(cid)])}, merge: true);
+    final batch = _schema.store.batch();
+    batch.updateData(_schema.userRef(id), {
+      "channels": FieldValue.arrayUnion([Uuid.toBase62(cid)])});
+    batch.updateData(_schema.channelRef(cid), {
+      "members": FieldValue.arrayUnion([Uuid.toBase62(id)])});
+    batch.commit();
   }
   leaveChannel (Uuid cid) {
     assert(id != Uuid.zero);
-    _schema.userRef(id).setData({
-      "channels": FieldValue.arrayRemove([Uuid.toBase62(cid)])}, merge: true);
+    final batch = _schema.store.batch();
+    batch.updateData(_schema.userRef(id), {
+      "channels": FieldValue.arrayRemove([Uuid.toBase62(cid)])});
+    batch.updateData(_schema.channelRef(cid), {
+      "members": FieldValue.arrayRemove([Uuid.toBase62(id)])});
+    batch.commit();
   }
 
   _userDidUnauth () {
@@ -290,6 +304,27 @@ abstract class _UserStore with Store {
               ..editedTime = fromTimestamp(doc.data["edited"])
       // TODO: attachments
     ));
+  }
+
+  _saveDeviceToken (DocumentSnapshot user) async {
+    if (Platform.isIOS) {
+      _messaging.onIosSettingsRegistered.listen((data) {
+        // save the token  OR subscribe to a topic here
+      });
+
+    } else if (Platform.isAndroid) {
+      String fcmToken = await _messaging.getToken();
+      if (fcmToken != null) {
+        print("Got device token ${user.reference.documentID} // $fcmToken");
+        final tokens = user.exists && user.data["tokens"] != null ? user.data["tokens"] : [];
+        if (!tokens.contains(fcmToken)) {
+          // merge in our new token info with the old stuff
+          await user.reference.updateData({"tokens": FieldValue.arrayUnion([fcmToken])});
+        }
+        // TODO: do we want to set a "currently active token" marker to indicate that notifications
+        // should only go to the active device?
+      }
+    }
   }
 }
 
@@ -343,6 +378,7 @@ abstract class _ProfilesStore with Store {
     if (prodoc.exists) {
       final profile = _makeProfile(id, prodoc);
       profiles[id] = profile;
+      print("Profile resolved $id / ${profile.name}");
       if (profile.type == ProfileType.channel) channels[id] = profile;
     }
     else print("Asked to resolve non-existent profile: $id");
@@ -420,7 +456,10 @@ abstract class _DebugStore with Store {
 
   Uuid createTestChannel (String name) {
     final id = Uuid.makeV1();
-    _schema.channelRef(id).setData({"created": FieldValue.serverTimestamp()});
+    _schema.channelRef(id).setData({
+      "created": FieldValue.serverTimestamp(),
+      "members": [],
+    });
     _schema.profileRef(id).setData({
       "name": name,
       "type": encodeProfileType(ProfileType.channel),
@@ -581,12 +620,14 @@ class AppStore extends _AppStore with _$AppStore {
     final app = await FirebaseApp.configure(name: "tfwchat", options: opts);
     final store = Firestore(app: app);
     final schema = new Schema(store);
+    final messaging = FirebaseMessaging();
     await store.settings(timestampsInSnapshotsEnabled: true);
-    return AppStore._(app, FirebaseAuth.fromApp(app), store, schema, new UserStore(schema),
-                      FirebaseAnalytics());
+    return AppStore._(app, FirebaseAuth.fromApp(app), store, schema,
+                      new UserStore(schema, messaging), FirebaseAnalytics(), messaging);
   }
 
-  AppStore._ ([this.app, this.auth, this.store, this.schema, this.user, this.analytics]) :
+  AppStore._ ([this.app, this.auth, this.store, this.schema, this.user, this.analytics,
+               this.messaging]) :
     observer = FirebaseAnalyticsObserver(analytics: analytics),
     profiles = new ProfilesStore(schema, user),
     debug = new DebugStore(schema)
@@ -611,6 +652,21 @@ class AppStore extends _AppStore with _$AppStore {
       }
     });
     _googleSignIn.signInSilently();
+
+    messaging.configure(
+      onMessage: (Map<String, dynamic> msg) async {
+        print("onMessage: $msg");
+      },
+      onLaunch: (Map<String, dynamic> msg) async {
+        print("onLaunch: $msg");
+      },
+      onResume: (Map<String, dynamic> message) async {
+        print("onResume: $message");
+      },
+    );
+
+    // TODO: do this at a sensible time (to request notification permissions)
+    // messaging.requestNotificationPermissions(IosNotificationSettings());
   }
 
   /// Firebase services.
@@ -619,6 +675,7 @@ class AppStore extends _AppStore with _$AppStore {
   final Firestore store;
   final FirebaseAnalytics analytics;
   final FirebaseAnalyticsObserver observer;
+  final FirebaseMessaging messaging;
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: <String>[
