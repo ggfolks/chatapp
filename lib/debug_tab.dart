@@ -35,7 +35,6 @@ List<Widget> testUserRows (AppStore app) {
 
 List<Widget> testChannelRows (AppStore app) {
   final rows = List<Widget>();
-  app.profiles.resolveAllChannels();
   for (final id in app.profiles.channels.keys) {
     rows.add(Observer(builder: (ctx) {
       final profile = app.profiles.profiles[id];
@@ -155,6 +154,15 @@ class DebugTab extends StatelessWidget {
           minimum: const EdgeInsets.all(10),
           sliver: SliverList(delegate: SliverChildListDelegate(testChannelRows(app)))
         )),
+        UI.makeHeader(ctx, "Test Notifications"),
+        Observer(builder: (ctx) => SliverSafeArea(
+          minimum: const EdgeInsets.all(10),
+          sliver: SliverList(delegate: SliverChildListDelegate([
+            Text("Notif channel: ${app.notifChannel}"),
+            RaisedButton(child: const Text("Set test notif"),
+                         onPressed: () => app.debug.setTestNotif(app)),
+          ])))
+        ),
       ]),
     );
   }

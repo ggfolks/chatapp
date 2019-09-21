@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:mobx/mobx.dart';
 
 import 'channel_page.dart';
 import 'data.dart';
@@ -8,9 +9,39 @@ import 'dates.dart';
 import 'stores.dart';
 import 'ui.dart';
 
-class ChatTab extends AuthedTab {
-  ChatTab (AppStore app) : super(app);
+class ChatContents extends StatefulWidget {
+  final AppStore app;
+  ChatContents (this.app);
+  _ChatContentsState createState () => _ChatContentsState(app);
+}
 
+class _ChatContentsState extends State<ChatContents> {
+  _ChatContentsState(this.app) {
+    // if a channel notification is set, pop our navigator to the root and push the appropriate channel
+    autorun((_) {
+      if (app.notifChannel != null) {
+        final channelId = app.notifChannel.channelId;
+        ChannelStore store;
+        if (app.notifChannel.type == ProfileType.channel) {
+          store = app.user.gameChannel(channelId);
+        } else if (app.notifChannel.type == ProfileType.person) {
+          store = app.user.privateChannel(channelId);
+        }
+        if (store != null) {
+          final route = CupertinoPageRoute<void>(
+            title: app.profiles.profiles[store.id].name,
+            builder: (ctx) => ChannelPage(app, store)
+          );
+          // TODO: we may need to pop back to the root?
+          if (Navigator.canPop(context)) Navigator.of(context).pushReplacement(route);
+          else Navigator.of(context).push(route);
+        } else print("Unable to find channel store for ${app.notifChannel}");
+        app.notifChannel = null;
+      }
+    });
+  }
+
+  final AppStore app;
   final rdfmt = RelativeDateFormatter();
 
   SliverList makeChannelList (BuildContext ctx, List<ChannelStore> channels, String emptyText) {
@@ -52,7 +83,7 @@ class ChatTab extends AuthedTab {
     return SliverList(delegate: SliverChildListDelegate(rows));
   }
 
-  @override Widget buildAuthed (BuildContext ctx) {
+  @override Widget build (BuildContext ctx) {
     // TODO: if channel data is not yet available, show a loading indicator?
     final slivers = List<Widget>();
     slivers.add(UI.makeHeader(ctx, "Channels"));
@@ -66,6 +97,10 @@ class ChatTab extends AuthedTab {
     slivers.add(makeChannelList(ctx, privates, "Find friends on the People tab."));
     return SafeArea(child: CustomScrollView(slivers: slivers));
   }
+}
 
+class ChatTab extends AuthedTab {
+  ChatTab (AppStore app) : super(app);
+  @override Widget buildAuthed (BuildContext ctx) => new ChatContents(app);
   @override String get unauthedMessage => "Log in to chat!";
 }

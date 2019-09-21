@@ -467,6 +467,17 @@ abstract class _DebugStore with Store {
     });
     return id;
   }
+
+  setTestNotif (AppStore app) {
+    if (app.notifChannel != null) {
+      app.notifChannel = null;
+      return;
+    }
+    if (!app.user.channels.isEmpty) {
+      final channelId = app.user.channels.first;
+      app.notifChannel = NotificationChannel(ProfileType.channel, channelId);
+    }
+  }
 }
 
 class GamesStore = _GamesStore with _$GamesStore;
@@ -614,6 +625,13 @@ class PrivateChannelStore extends ChannelStore {
   }
 }
 
+class NotificationChannel {
+  NotificationChannel([this.type, this.channelId]);
+  final ProfileType type;
+  final Uuid channelId;
+  String toString () => "${channelId}/${type}";
+}
+
 class AppStore extends _AppStore with _$AppStore {
 
   static Future<AppStore> create (FirebaseOptions opts) async {
@@ -653,15 +671,17 @@ class AppStore extends _AppStore with _$AppStore {
     });
     _googleSignIn.signInSilently();
 
+    // on iOS the data is merged into msg, on Android it's in a data submap...
     messaging.configure(
       onMessage: (Map<String, dynamic> msg) async {
-        print("onMessage: $msg");
+        // nothing to display if you're already in app, we'll let the new messages
+        // indicator take care of notifying you
       },
       onLaunch: (Map<String, dynamic> msg) async {
-        print("onLaunch: $msg");
+        _handleNotifyMsg(msg["data"] ?? msg);
       },
-      onResume: (Map<String, dynamic> message) async {
-        print("onResume: $message");
+      onResume: (Map<String, dynamic> msg) async {
+        _handleNotifyMsg(msg["data"] ?? msg);
       },
     );
 
@@ -696,9 +716,6 @@ class AppStore extends _AppStore with _$AppStore {
   /// Handles debug information users.
   final DebugStore debug;
 
-  /// Messages for each channel.
-  final channels = ObservableMap<Uuid, ChannelStore>();
-
   Future<void> sendAnalyticsEvent(String name, Map<String, dynamic> params) async {
     return await analytics.logEvent(name: name, parameters: params);
   }
@@ -729,7 +746,16 @@ class AppStore extends _AppStore with _$AppStore {
       user._userDidUnauth();
     }
   }
-}
 
+  _handleNotifyMsg (Map<String, dynamic> data) {
+    final channel = data["channel"];
+    if (channel != null) this.notifChannel = new NotificationChannel(
+      decodeProfileType(int.parse(data["type"] ?? "1")),
+      Uuid.fromBase62(channel));
+  }
+}
 abstract class _AppStore with Store {
+
+  // set to a value when we get a channel notification, then set back to null after navigating to it
+  @observable NotificationChannel notifChannel;
 }

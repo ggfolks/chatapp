@@ -1,6 +1,7 @@
 import "package:firebase_core/firebase_core.dart";
 import "package:flutter/cupertino.dart";
 import "package:flutter/material.dart";
+import 'package:mobx/mobx.dart';
 
 import "stores.dart";
 import "chat_tab.dart";
@@ -53,12 +54,20 @@ class _ChatAppState extends State<ChatApp> with WidgetsBindingObserver {
     // TEMP: hack, resolve all people when we switch to the people tab
     tabController.addListener(() {
       if (tabController.index == 3) app.profiles.resolveAllPeople();
+      else if (tabController.index == 4) app.profiles.resolveAllChannels();
+    });
+    // if a channel notification is set, switch to the chats tab;
+    // the chats tab UI will then navigate itself to the right place to display the message
+    autorun((_) {
+      if (app.notifChannel != null) {
+        tabController.index = 0;
+      }
     });
   }
 
   final AppStore app;
   final tabController = new CupertinoTabController();
-  // TODO: set default tab index to 1 or 2 if we're not logged in
+  // TODO: set default tab index to 1, or 2 if we're not logged in
 
   @override void initState () {
     super.initState();
