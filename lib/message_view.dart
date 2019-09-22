@@ -2,12 +2,27 @@ import 'package:intl/intl.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import 'data.dart';
 import 'stores.dart';
 import 'ui.dart';
 
 final timeFormat = new DateFormat.jm();
+
+void openUrl (String url) async {
+  if (await canLaunch(url)) {
+    await launch(url);
+  } else {
+    // TODO: feedback in app
+    print("Could not open $url");
+  }
+}
+
+Widget makeClickable (String linkUrl, Widget widget) {
+  if (linkUrl == null) return widget;
+  return GestureDetector(onTap: () => openUrl(linkUrl), child: widget);
+}
 
 class MessageView extends StatelessWidget {
   const MessageView ([this.app, this.messages]);
@@ -18,10 +33,19 @@ class MessageView extends StatelessWidget {
   @override
   Widget build (BuildContext ctx) {
     final first = messages.first;
-    final texts = messages.map((msg) => Container(
-      padding: const EdgeInsets.only(top: 5),
-      child: Text(msg.text, style: Theme.of(ctx).textTheme.subhead)
-    ));
+    List<Widget> contents = [];
+    for (final msg in messages) {
+      if (msg.imageUrl != null) contents.add(Container(
+        padding: const EdgeInsets.only(top: 5),
+        child: makeClickable(msg.linkUrl, Image.network(msg.imageUrl))
+      ));
+      var style = Theme.of(ctx).textTheme.subhead;
+      if (msg.linkUrl != null) style = style.copyWith(decoration: TextDecoration.underline);
+      contents.add(Container(
+        padding: const EdgeInsets.only(top: 5),
+        child: makeClickable(msg.linkUrl, Text(msg.text, style: style))
+      ));
+    }
 
     return Observer(builder: (ctx) {
       app.profiles.resolveProfile(first.authorId);
@@ -47,7 +71,7 @@ class MessageView extends StatelessWidget {
                     Text(timeFormat.format(first.sentTime), style: Theme.of(ctx).textTheme.body1),
                   ]
                 ),
-                ...texts
+                ...contents
               ]
             ))
           ],

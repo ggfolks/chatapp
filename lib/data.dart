@@ -1,6 +1,5 @@
 library data;
 
-import 'package:built_collection/built_collection.dart';
 import 'package:built_value/built_value.dart';
 import 'uuid.dart';
 
@@ -83,7 +82,8 @@ abstract class Message implements Profiled, Built<Message, MessageBuilder> {
   String get text;
   DateTime get sentTime;
   @nullable DateTime get editedTime;
-  BuiltList<String> get attachments;
+  @nullable String get imageUrl;
+  @nullable String get linkUrl;
 
   Uuid get profileId => authorId;
 

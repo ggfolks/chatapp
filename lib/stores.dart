@@ -86,7 +86,6 @@ class Schema {
             ..authorId = Uuid.fromBase62(doc.data["sender"])
             ..sentTime = fromTimestamp(doc.data["sent"])
             ..editedTime = fromTimestamp(doc.data["edited"])
-    // TODO: attachments
   );
 }
 
@@ -301,7 +300,8 @@ abstract class _UserStore with Store {
               ..authorId = id
               ..sentTime = fromTimestamp(doc.data["sent"])
               ..editedTime = fromTimestamp(doc.data["edited"])
-      // TODO: attachments
+              ..imageUrl = doc.data["image"]
+              ..linkUrl = doc.data["link"]
     ));
   }
 
@@ -310,7 +310,9 @@ abstract class _UserStore with Store {
       // TODO: is there a better time to request notification permissions?
       // right now this will happen right after you authenticate...
       _messaging.requestNotificationPermissions(IosNotificationSettings());
-      _messaging.onIosSettingsRegistered.listen((data) =>  _writeDeviceToken(user));
+      final unlisten = _messaging.onIosSettingsRegistered.listen(
+        (data) =>  _writeDeviceToken(user));
+      _onClear.add(() => unlisten.cancel());
     }
     else if (Platform.isAndroid) _writeDeviceToken(user);
     // else ???
@@ -605,7 +607,6 @@ class GameChannelStore extends ChannelStore {
     final msgKey = Uuid.toBase62(msg.uuid), sent = toTimestamp(msg.sentTime);
     _schema.channelRef(id).collection("msgs").document(msgKey).setData({
       "text": msg.text, "sender": Uuid.toBase62(msg.authorId), "sent": sent
-      // TODO: attachments
     });
   }
 
@@ -623,11 +624,9 @@ class PrivateChannelStore extends ChannelStore {
     final msgKey = Uuid.toBase62(msg.uuid), sent = toTimestamp(msg.sentTime);
     _schema.privatesRef(id).collection("msgs").document(msgKey).setData({
       "text": msg.text, "sender": Uuid.toBase62(msg.authorId), "sent": sent
-      // TODO: attachments
     });
     _schema.privatesRef(_selfId).collection("sent").document(msgKey).setData({
       "text": msg.text, "recip": Uuid.toBase62(id), "sent": sent
-      // TODO: attachments
     });
   }
 }
