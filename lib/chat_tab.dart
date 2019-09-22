@@ -84,18 +84,20 @@ class _ChatContentsState extends State<ChatContents> {
   }
 
   @override Widget build (BuildContext ctx) {
-    // TODO: if channel data is not yet available, show a loading indicator?
-    final slivers = List<Widget>();
-    slivers.add(UI.makeHeader(ctx, "Channels"));
-    final channels = app.user.channels.map((id) => app.user.gameChannel(id)).toList();
-    slivers.add(makeChannelList(ctx, channels, "Subscribe to game channels on the Game tab."));
-    slivers.add(UI.makeHeader(ctx, "Friends"));
-    final privates = app.user.friends.keys
-                        .where((id) => app.user.friends[id] == FriendStatus.accepted)
-                        .map((id) => app.user.privateChannel(id))
-                        .toList();
-    slivers.add(makeChannelList(ctx, privates, "Find friends on the People tab."));
-    return SafeArea(child: CustomScrollView(slivers: slivers));
+    return Observer(builder: (ctx) {
+      // TODO: if channel data is not yet available, show a loading indicator?
+      final slivers = List<Widget>();
+      slivers.add(UI.makeHeader(ctx, "Channels"));
+      final channels = app.user.channels.map((id) => app.user.gameChannel(id)).toList();
+      slivers.add(makeChannelList(ctx, channels, "Subscribe to game channels on the Game tab."));
+      slivers.add(UI.makeHeader(ctx, "Friends"));
+      final privates = app.user.friends.keys
+                          .where((id) => app.user.friends[id] == FriendStatus.accepted)
+                          .map((id) => app.user.privateChannel(id))
+                          .toList();
+      slivers.add(makeChannelList(ctx, privates, "Find friends on the People tab."));
+      return SafeArea(child: CustomScrollView(slivers: slivers));
+    });
   }
 }
 
