@@ -191,7 +191,6 @@ abstract class _UserStore with Store {
       id = newId;
 
       final userRef = _schema.userRef(newId);
-      // _onClear.add(syncMapTo(friends, userRef, 'friends', Uuid.toBase62, encodeFriendStatus));
       final userSub = userRef.snapshots().listen((snap) {
         if (!snap.exists) {
           userRef.setData({
@@ -306,13 +305,19 @@ abstract class _UserStore with Store {
     ));
   }
 
-  _saveDeviceToken (DocumentSnapshot user) async {
+  _saveDeviceToken (DocumentSnapshot user) {
     if (Platform.isIOS) {
-      _messaging.onIosSettingsRegistered.listen((data) {
-        // save the token  OR subscribe to a topic here
-      });
+      // TODO: is there a better time to request notification permissions?
+      // right now this will happen right after you authenticate...
+      _messaging.requestNotificationPermissions(IosNotificationSettings());
+      _messaging.onIosSettingsRegistered.listen((data) =>  _writeDeviceToken(user));
+    }
+    else if (Platform.isAndroid) _writeDeviceToken(user);
+    // else ???
+  }
 
-    } else if (Platform.isAndroid) {
+  _writeDeviceToken (DocumentSnapshot user) async {
+    try {
       String fcmToken = await _messaging.getToken();
       if (fcmToken != null) {
         print("Got device token ${user.reference.documentID} // $fcmToken");
@@ -324,6 +329,8 @@ abstract class _UserStore with Store {
         // TODO: do we want to set a "currently active token" marker to indicate that notifications
         // should only go to the active device?
       }
+    } catch (error) {
+      print("Failed to get messaging token: $error");
     }
   }
 }
@@ -684,9 +691,6 @@ class AppStore extends _AppStore with _$AppStore {
         _handleNotifyMsg(msg["data"] ?? msg);
       },
     );
-
-    // TODO: do this at a sensible time (to request notification permissions)
-    // messaging.requestNotificationPermissions(IosNotificationSettings());
   }
 
   /// Firebase services.
