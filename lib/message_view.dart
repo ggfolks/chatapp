@@ -12,7 +12,7 @@ final timeFormat = new DateFormat.jm();
 
 void openUrl (String url) async {
   if (await canLaunch(url)) {
-    await launch(url);
+    await launch(url, forceSafariVC: false);
   } else {
     // TODO: feedback in app
     print("Could not open $url");
