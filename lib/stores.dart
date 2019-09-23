@@ -640,6 +640,10 @@ class NotificationChannel {
 
 class AppStore extends _AppStore with _$AppStore {
 
+  // TODO: sometimes Firebase takes a while to initialize and sync; show some sort of spinny
+  // "syncing" indicator at the bottom of all coversations (or on the screen somewhere) to let
+  // people know they're seeing out of date info...
+
   static Future<AppStore> create (FirebaseOptions opts) async {
     final app = await FirebaseApp.configure(name: "tfwchat", options: opts);
     final store = Firestore(app: app);
@@ -670,9 +674,13 @@ class AppStore extends _AppStore with _$AppStore {
     _googleSignIn.onCurrentUserChanged.listen((account) async {
       if (account != null) {
         final gauth = await account.authentication;
-        // TODO: catch platform exception here?
-        await auth.signInWithCredential(GoogleAuthProvider.getCredential(
-          idToken: gauth.idToken, accessToken: gauth.accessToken));
+        try {
+          await auth.signInWithCredential(GoogleAuthProvider.getCredential(
+            idToken: gauth.idToken, accessToken: gauth.accessToken));
+          this.authStatus = "Authenticated";
+        } catch (error) {
+          this.authStatus = error.code;
+        }
       }
     });
     _googleSignIn.signInSilently();
@@ -727,8 +735,8 @@ class AppStore extends _AppStore with _$AppStore {
     try {
       await _googleSignIn.signIn();
     } catch (error) {
-      // TODO: stick error somewhere useful
       print(error);
+      this.authStatus = error.toString();
     }
   }
 
@@ -741,11 +749,12 @@ class AppStore extends _AppStore with _$AppStore {
         try {
           await _googleSignIn.signOut();
         } catch (error) {
-          // TODO: stick error somewhere useful
           print(error);
+          this.authStatus = error.toString();
         }
       }
       await auth.signOut();
+      this.authStatus = "Not authenticated";
       user._userDidUnauth();
     }
   }
@@ -761,4 +770,6 @@ abstract class _AppStore with Store {
 
   // set to a value when we get a channel notification, then set back to null after navigating to it
   @observable NotificationChannel notifChannel;
+
+  @observable String authStatus = "";
 }

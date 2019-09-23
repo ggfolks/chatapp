@@ -176,6 +176,7 @@ class DebugTab extends StatelessWidget {
           minimum: const EdgeInsets.all(10),
           sliver: SliverList(delegate: SliverChildListDelegate([
             Text("User ID: ${app.user.id}"),
+            Text("Auth status: ${app.authStatus}"),
             Text("Name: ${app.profiles.self.name}"),
             Text("Friend count: ${friendCount(friends, FriendStatus.accepted)}"),
             Text("Pending sent invites: ${friendCount(friends, FriendStatus.sent)}"),
