@@ -99,6 +99,9 @@ abstract class _UserStore with Store {
   final _privChannelStores = Map<Uuid, ChannelStore>();
   final _channelStores = Map<Uuid, ChannelStore>();
 
+  /// Tracks whether we've saved a device token for the authed user.
+  Uuid _tokenId = Uuid.zero;
+
   /// The id of the user for whom we manage data.
   @observable Uuid id = Uuid.zero;
 
@@ -202,7 +205,10 @@ abstract class _UserStore with Store {
           syncSetFrom(channels, snap, "channels", uuidCodec);
         }
         // only save device tokens for "real" authenticated users, not test users
-        if (newId == authId) _saveDeviceToken(snap);
+        if (newId == authId && newId != _tokenId) {
+          _tokenId = newId;
+          _saveDeviceToken(snap);
+        }
       }, onError: (error) {
         print("Subscription error: $error"); // TODO: better error handling
       });
@@ -385,10 +391,15 @@ abstract class _ProfilesStore with Store {
     // TODO: maintain a set of queries so that we get profile updates?
     final prodoc = await _schema.profileRef(id).get();
     if (prodoc.exists) {
-      final profile = _makeProfile(id, prodoc);
-      profiles[id] = profile;
-      print("Profile resolved $id / ${profile.name}");
-      if (profile.type == ProfileType.channel) channels[id] = profile;
+      try {
+        final profile = _makeProfile(id, prodoc);
+        profiles[id] = profile;
+        print("Profile resolved $id / ${profile.name}");
+        if (profile.type == ProfileType.channel) channels[id] = profile;
+      } catch (error) {
+        print("Failed to decode profile $id: $prodoc");
+        print(error);
+      }
     }
     else print("Asked to resolve non-existent profile: $id");
   }
