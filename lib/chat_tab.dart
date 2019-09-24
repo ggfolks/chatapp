@@ -17,25 +17,28 @@ class ChatContents extends StatefulWidget {
 
 class _ChatContentsState extends State<ChatContents> {
   _ChatContentsState(this.app) {
-    // if a channel notification is set, pop our navigator to the root and push the appropriate channel
+    // if a channel notif is set, pop our navigator to the root then push the appropriate channel
     autorun((_) {
+      print("Notif channel changed ${app.notifChannel}");
       if (app.notifChannel != null) {
-        final channelId = app.notifChannel.channelId;
-        ChannelStore store;
-        if (app.notifChannel.type == ProfileType.channel) {
-          store = app.user.gameChannel(channelId);
-        } else if (app.notifChannel.type == ProfileType.person) {
-          store = app.user.privateChannel(channelId);
-        }
-        if (store != null) {
-          final route = CupertinoPageRoute<void>(
-            title: app.profiles.profiles[store.id].name,
-            builder: (ctx) => ChannelPage(app, store)
-          );
-          // TODO: we may need to pop back to the root?
-          if (Navigator.canPop(context)) Navigator.of(context).pushReplacement(route);
-          else Navigator.of(context).push(route);
-        } else print("Unable to find channel store for ${app.notifChannel}");
+        Future.delayed(const Duration(milliseconds: 500), () {
+          final channelId = app.notifChannel.channelId;
+          ChannelStore store;
+          if (app.notifChannel.type == ProfileType.channel) {
+            store = app.user.gameChannel(channelId);
+          } else if (app.notifChannel.type == ProfileType.person) {
+            store = app.user.privateChannel(channelId);
+          }
+          if (store != null) {
+            final route = CupertinoPageRoute<void>(
+              title: app.profiles.profiles[store.id].name,
+              builder: (ctx) => ChannelPage(app, store)
+            );
+            // TODO: we may need to pop back to the root?
+            if (Navigator.canPop(context)) Navigator.of(context).pushReplacement(route);
+            else Navigator.of(context).push(route);
+          } else print("Unable to find channel store for ${app.notifChannel}");
+        });
         app.notifChannel = null;
       }
     });
@@ -50,14 +53,12 @@ class _ChatContentsState extends State<ChatContents> {
     channels.forEach((cs) {
       app.profiles.resolveProfile(cs.id);
       rows.add(GestureDetector(
-        onTap: () {
-          Navigator.of(ctx).push(
-            CupertinoPageRoute<void>(
-              title: app.profiles.profiles[cs.id].name,
-              builder: (ctx) => ChannelPage(app, cs)
-            )
-          );
-        },
+        onTap: () => Navigator.of(ctx).push(
+          CupertinoPageRoute<void>(
+            title: app.profiles.profiles[cs.id].name,
+            builder: (ctx) => ChannelPage(app, cs)
+          )
+        ),
         child: Observer(builder: (ctx) {
           final profile = app.profiles.profiles[cs.id];
           return Container(
