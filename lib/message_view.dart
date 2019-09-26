@@ -1,5 +1,4 @@
 import 'package:intl/intl.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -49,6 +48,7 @@ class MessageView extends StatelessWidget {
 
     return Observer(builder: (ctx) {
       app.profiles.resolveProfile(first.authorId);
+      // print("Message ${first.uuid} from ${first.authorId}");
       final sender = app.profiles.profiles[first.authorId];
       return Container(
         padding: const EdgeInsets.all(8),

@@ -17,17 +17,21 @@ class ChannelPage extends StatefulWidget {
   _ChannelPageState createState () => _ChannelPageState(app, channel);
 }
 
+Widget titleView (BuildContext ctx, String title) => Container(
+  padding: const EdgeInsets.only(top: 8, left: 8, right: 8),
+  child: Text(title, style: Theme.of(ctx).textTheme.title)
+);
+
 Widget messagesList (AppStore app, ChannelStore channel, ScrollController scrollController) {
   final formatter = new RelativeDateFormatter(), rows = channel.aggregateMessages;
   return ListView.builder(
     controller: scrollController,
+    reverse: true,
     itemCount: rows.length,
     itemBuilder: (ctx, index) {
-      final row = rows[index];
-      return (row is DateTime) ? Container(
-        padding: const EdgeInsets.only(top: 8, left: 8, right: 8),
-        child: Text(formatter.formatHeader(row), style: Theme.of(ctx).textTheme.title)
-      ) : MessageView(app, row);
+      final row = rows[rows.length-index-1];
+      return (row is DateTime) ? titleView(ctx, formatter.formatHeader(row))
+                               : MessageView(app, row);
     }
   );
 }
@@ -35,7 +39,7 @@ Widget messagesList (AppStore app, ChannelStore channel, ScrollController scroll
 class _ChannelPageState extends State<ChannelPage> {
   _ChannelPageState ([this.app, this.channel]) {
     scrollController.addListener(() {
-      scrolledBack = (scrollController.offset < scrollController.position.maxScrollExtent);
+      scrolledBack = (scrollController.offset > scrollController.position.minScrollExtent);
     });
   }
 
@@ -48,17 +52,12 @@ class _ChannelPageState extends State<ChannelPage> {
   void scrollToBottom () {
     SchedulerBinding.instance.addPostFrameCallback((_) {
       scrollController.animateTo(
-        scrollController.position.maxScrollExtent,
+        scrollController.position.minScrollExtent,
         duration: const Duration(milliseconds: 300),
         curve: Curves.easeOut,
       );
       scrolledBack = false;
     });
-  }
-
-  void snapToBottom () {
-    SchedulerBinding.instance.addPostFrameCallback(
-      (_) => scrollController.jumpTo(scrollController.position.maxScrollExtent));
   }
 
   @override void dispose () {
@@ -68,45 +67,47 @@ class _ChannelPageState extends State<ChannelPage> {
   }
 
   @override Widget build (BuildContext ctx) {
-    if (!scrolledBack) snapToBottom();
-
-    return CupertinoPageScaffold(
-      navigationBar: const CupertinoNavigationBar(),
-      child: Observer(
-        builder: (ctx) => Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            // Flutter tries to do magic to the ListView by putting enough padding to keep it from
-            // scrolling under the bototm tab bar by default, but we have another widget below the
-            // scrollview so we have to manually do that padding magic ourselves *and* remove the
-            // padding magic from listview otherwise it will have a bunch of unwanted padding
-            Expanded(child: MediaQuery.removePadding(
-              removeBottom: true, context: ctx,
-              child: messagesList(app, channel, scrollController))),
-            Container(
-              padding: const EdgeInsets.only(left: 8, right: 8),
-              decoration: BoxDecoration(border: Border(
-                top: BorderSide(width: 1.0, color: Theme.of(ctx).dividerColor),
-              )),
-              child: TextField(
-                controller: textController,
-                decoration: InputDecoration(
-                  border: InputBorder.none,
-                  hintText: 'Message ${app.profiles.name(channel.id)}...'
-                ),
-                textInputAction: TextInputAction.send,
-                textCapitalization: TextCapitalization.sentences,
-                maxLines: null, // causes it to auto-expand with long text
-                onSubmitted: (text) {
-                  channel.sendMessage(app.profiles.self, text);
-                  textController.text = "";
-                  scrollToBottom();
-                }
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.deepOrange,
+        title: Observer(builder: (ctx) => Text(app.profiles.name(channel.id))),
+      ),
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          // Flutter is adding padding below and above our list which we need to remove for...
+          // reasons (the text input field below, and the appBar above, I guess...).
+          Expanded(child: MediaQuery.removePadding(
+            removeTop: true,
+            removeBottom: true,
+            context: ctx, child: Observer(
+              builder: (ctx) => messagesList(app, channel, scrollController)
+            )
+          )),
+          Container(
+            padding: const EdgeInsets.only(left: 8, right: 8),
+            decoration: BoxDecoration(border: Border(
+              top: BorderSide(width: 1.0, color: Theme.of(ctx).dividerColor),
+            )),
+            child: TextField(
+              controller: textController,
+              decoration: InputDecoration(
+                border: InputBorder.none,
+                hintText: 'Message ${app.profiles.name(channel.id)}...'
               ),
+              textInputAction: TextInputAction.send,
+              textCapitalization: TextCapitalization.sentences,
+              maxLines: null, // causes it to auto-expand with long text
+              onSubmitted: (text) {
+                channel.sendMessage(app.profiles.self, text);
+                textController.text = "";
+                scrollToBottom();
+              }
             ),
-            SizedBox(height: MediaQuery.of(ctx).padding.bottom)
-          ]
-        ))
+          ),
+          SizedBox(height: MediaQuery.of(ctx).padding.bottom)
+        ]
+      )
     );
   }
 }

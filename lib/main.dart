@@ -1,6 +1,7 @@
 import "package:firebase_core/firebase_core.dart";
 import "package:flutter/cupertino.dart";
 import "package:flutter/material.dart";
+import 'package:flutter_mobx/flutter_mobx.dart';
 import 'package:mobx/mobx.dart';
 
 import "stores.dart";
@@ -29,18 +30,24 @@ class Tab {
   final Widget Function(AppStore app) maker;
   const Tab (this.title, this.icon, this.maker);
 
-  BottomNavigationBarItem navItem () =>
-    BottomNavigationBarItem(icon: Icon(icon), title: Text(title));
-  Widget tabView (AppStore app) =>
-    CupertinoTabView(builder: (ctx) => maker(app), defaultTitle: title);
+  BottomNavigationBarItem navItem () => BottomNavigationBarItem(
+    icon: Icon(icon), title: Text(title), backgroundColor: Colors.deepOrange);
+  Widget tabView (AppStore app) => maker(app);
+  // Widget iosTabView (AppStore app) =>
+  //   CupertinoTabView(builder: (ctx) => maker(app), defaultTitle: title);
 }
 
 final tabs = [
-  Tab("Chat", CupertinoIcons.conversation_bubble, (app) => ChatTab(app)),
-  Tab("News", CupertinoIcons.news, (app) => NewsTab(app)),
-  Tab("Games", CupertinoIcons.game_controller, (app) => GamesTab(app)),
-  Tab("People", CupertinoIcons.profile_circled, (app) => PeopleTab(app)),
-  Tab("Debug", CupertinoIcons.info, (app) => DebugTab(app)),
+  // Tab("Chat", CupertinoIcons.conversation_bubble, (app) => ChatTab(app)),
+  // Tab("News", CupertinoIcons.news, (app) => NewsTab(app)),
+  // Tab("Games", CupertinoIcons.game_controller, (app) => GamesTab(app)),
+  // Tab("People", CupertinoIcons.profile_circled, (app) => PeopleTab(app)),
+  // Tab("Debug", CupertinoIcons.info, (app) => DebugTab(app)),
+  Tab("Chat", Icons.chat_bubble, (app) => ChatTab(app)),
+  Tab("News", Icons.info, (app) => NewsTab(app)),
+  Tab("Games", Icons.videogame_asset, (app) => GamesTab(app)),
+  Tab("People", Icons.person, (app) => PeopleTab(app)),
+  Tab("Debug", Icons.info, (app) => DebugTab(app)),
 ];
 
 class ChatApp extends StatefulWidget {
@@ -52,22 +59,23 @@ class ChatApp extends StatefulWidget {
 class _ChatAppState extends State<ChatApp> with WidgetsBindingObserver {
   _ChatAppState (this.app) {
     // TEMP: hack, resolve all people when we switch to the people tab
-    tabController.addListener(() {
-      if (tabController.index == 3) app.profiles.resolveAllPeople();
-      else if (tabController.index == 4) app.profiles.resolveAllChannels();
+    autorun((_) {
+      if (app.selTabIdx == 3) app.profiles.resolveAllPeople();
+      else if (app.selTabIdx == 4) app.profiles.resolveAllChannels();
     });
     // if a channel notification is set, switch to the chats tab;
     // the chats tab UI will then navigate itself to the right place to display the message
     autorun((_) {
-      if (app.notifChannel != null) {
-        tabController.index = 0;
-      }
+      if (app.notifChannel != null) app.selTabIdx = 0;
     });
   }
 
   final AppStore app;
-  final tabController = new CupertinoTabController();
+  // final tabController = new CupertinoTabController();
+  final tabViews = new Map<int, Widget>();
   // TODO: set default tab index to 1, or 2 if we're not logged in
+
+  _tabView (int index) => tabViews.putIfAbsent(index, () => tabs[index].tabView(app));
 
   @override void initState () {
     super.initState();
@@ -76,7 +84,7 @@ class _ChatAppState extends State<ChatApp> with WidgetsBindingObserver {
 
   @override void dispose () {
     super.dispose();
-    tabController.dispose();
+    // tabController.dispose();
   }
 
   @override void didChangeAppLifecycleState (AppLifecycleState state) {
@@ -95,11 +103,21 @@ class _ChatAppState extends State<ChatApp> with WidgetsBindingObserver {
         primarySwatch: Colors.blue,
       ),
       // TEMP: use a scaffold so we can show snackbars
-      home: Scaffold(body: CupertinoTabScaffold(
-        controller: tabController,
-        tabBar: CupertinoTabBar(items: tabs.map((tab) => tab.navItem()).toList()),
-        tabBuilder: (ctx, int index) => tabs[index].tabView(app),
-      )),
+      // home: Scaffold(body: CupertinoTabScaffold(
+      //   controller: tabController,
+      //   tabBar: CupertinoTabBar(items: tabs.map((tab) => tab.navItem()).toList()),
+      //   tabBuilder: (ctx, int index) => tabs[index].tabView(app),
+      // )),
+      home: Observer(builder: (ctx) => Scaffold(
+        body: _tabView(app.selTabIdx),
+        bottomNavigationBar: BottomNavigationBar(
+          items: tabs.map((tab) => tab.navItem()).toList(),
+          currentIndex: app.selTabIdx,
+          onTap: (int index) {
+            app.selTabIdx = index;
+          }
+        )
+      ))
     );
   }
 }

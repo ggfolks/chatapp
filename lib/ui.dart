@@ -56,6 +56,11 @@ class ProfileRow extends StatelessWidget {
   }
 }
 
+PageRoute<T> pageRoute<T> ({String title, WidgetBuilder builder}) {
+  // return CupertinoPageRoute(title: title, builder: builder);
+  return MaterialPageRoute(builder: builder);
+}
+
 abstract class AppTab extends StatelessWidget {
   AppTab ([this.app]);
   final AppStore app;
@@ -124,10 +129,9 @@ class UI {
     );
 
 
-  static navigateToFriend (BuildContext ctx, AppStore app, Profile friend) => Navigator.of(ctx).push(
-    CupertinoPageRoute<void>(
+  static navigateToFriend (BuildContext ctx, AppStore app, Profile friend) =>
+    Navigator.of(ctx).push(pageRoute<void>(
       title: friend.name,
       builder: (ctx) => ChannelPage(app, app.user.privateChannel(friend.uuid))
-    )
-  );
+    ));
 }

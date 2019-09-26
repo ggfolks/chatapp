@@ -30,7 +30,7 @@ class _ChatContentsState extends State<ChatContents> {
             store = app.user.privateChannel(channelId);
           }
           if (store != null) {
-            final route = CupertinoPageRoute<void>(
+            final route = pageRoute<void>(
               title: app.profiles.profiles[store.id].name,
               builder: (ctx) => ChannelPage(app, store)
             );
@@ -52,18 +52,18 @@ class _ChatContentsState extends State<ChatContents> {
     final rows = List<Widget>(), theme = Theme.of(ctx);
     channels.forEach((cs) {
       app.profiles.resolveProfile(cs.id);
-      rows.add(GestureDetector(
-        onTap: () => Navigator.of(ctx).push(
-          CupertinoPageRoute<void>(
-            title: app.profiles.profiles[cs.id].name,
-            builder: (ctx) => ChannelPage(app, cs)
-          )
-        ),
-        child: Observer(builder: (ctx) {
-          final profile = app.profiles.profiles[cs.id];
-          return Container(
-            padding: const EdgeInsets.all(8),
-            child: Row(children: [
+      rows.add(Container(
+        padding: const EdgeInsets.all(8),
+        child: GestureDetector(
+          onTap: () => Navigator.of(ctx).push(
+            pageRoute<void>(
+              title: app.profiles.profiles[cs.id].name,
+              builder: (ctx) => ChannelPage(app, cs)
+            )
+          ),
+          child: Observer(builder: (ctx) {
+            final profile = app.profiles.profiles[cs.id];
+            return Row(children: [
               ProfileImage(profile),
               SizedBox(width: 5),
               Expanded(child: Column(
@@ -76,9 +76,8 @@ class _ChatContentsState extends State<ChatContents> {
                   SizedBox(height: 5),
                   Text(cs.latest == null ? "" : cs.latest.text, style: theme.textTheme.subhead),
                 ]))
-            ])
-          );
-        })));
+            ]);
+          }))));
     });
     if (rows.length == 0) rows.add(Container(margin: EdgeInsets.all(10), child: Text(emptyText)));
     return SliverList(delegate: SliverChildListDelegate(rows));

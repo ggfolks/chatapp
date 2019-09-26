@@ -10,9 +10,16 @@ enum FriendStatus { none, sent, received, declined, accepted }
 int encodeFriendStatus (FriendStatus status) => FriendStatus.values.indexOf(status);
 FriendStatus decodeFriendStatus (int status) => FriendStatus.values[status];
 
-enum ProfileType { pending, person, game, channel }
+enum ProfileType { pending, person, game, channel, npc }
 int encodeProfileType (ProfileType type) => ProfileType.values.indexOf(type);
-ProfileType decodeProfileType (int type) => ProfileType.values[type];
+ProfileType decodeProfileType (int type) {
+  try {
+    return ProfileType.values[type];
+  } catch (error) {
+    print("Failed to decode profile type ($type): $error");
+    return ProfileType.person;
+  }
+}
 
 abstract class Profiled {
   Uuid get profileId;

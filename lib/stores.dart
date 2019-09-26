@@ -393,8 +393,8 @@ abstract class _ProfilesStore with Store {
     if (prodoc.exists) {
       try {
         final profile = _makeProfile(id, prodoc);
-        profiles[id] = profile;
         print("Profile resolved $id / ${profile.name}");
+        profiles[id] = profile;
         if (profile.type == ProfileType.channel) channels[id] = profile;
       } catch (error) {
         print("Failed to decode profile $id: $prodoc");
@@ -778,6 +778,8 @@ class AppStore extends _AppStore with _$AppStore {
   }
 }
 abstract class _AppStore with Store {
+
+  @observable int selTabIdx = 0;
 
   // set to a value when we get a channel notification, then set back to null after navigating to it
   @observable NotificationChannel notifChannel;
