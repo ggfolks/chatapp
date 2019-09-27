@@ -80,12 +80,17 @@ class Schema {
   DocumentReference privatesRef (Uuid id) => store.collection("privates").document(Uuid.toBase62(id));
   DocumentReference channelRef (Uuid id) => store.collection("channels").document(Uuid.toBase62(id));
 
-  Message messageFromDoc (DocumentSnapshot doc) => Message(
+  Message messageFromDoc (DocumentSnapshot doc) => messageFromDocWith(
+    doc, Uuid.fromBase62(doc.data["sender"]));
+
+  Message messageFromDocWith (DocumentSnapshot doc, Uuid authorId) => Message(
     (b) => b..uuid = Uuid.fromBase62(doc.documentID)
-            ..text = doc.data["text"]
-            ..authorId = Uuid.fromBase62(doc.data["sender"])
-            ..sentTime = fromTimestamp(doc.data["sent"])
-            ..editedTime = fromTimestamp(doc.data["edited"])
+             ..authorId = authorId
+             ..text = doc.data["text"]
+             ..imageUrl = doc.data["image"]
+             ..linkUrl = doc.data["link"]
+             ..sentTime = fromTimestamp(doc.data["sent"])
+             ..editedTime = fromTimestamp(doc.data["edited"])
   );
 }
 
@@ -223,6 +228,7 @@ abstract class _UserStore with Store {
               _gotMsgsPrivate(change.document);
               break;
             case DocumentChangeType.removed:
+              _messageDeleted(Uuid.fromBase62(change.document.documentID));
               print("TODO: message was removed? ${change.document}");
               break;
           }
@@ -300,15 +306,15 @@ abstract class _UserStore with Store {
 
   _gotSentPrivate (DocumentSnapshot doc) {
     final recipId = Uuid.fromBase62(doc.data["recip"]);
-    privateChannel(recipId).receiveMessage(Message(
-      (b) => b..uuid = Uuid.fromBase62(doc.documentID)
-              ..text = doc.data["text"]
-              ..authorId = id
-              ..sentTime = fromTimestamp(doc.data["sent"])
-              ..editedTime = fromTimestamp(doc.data["edited"])
-              ..imageUrl = doc.data["image"]
-              ..linkUrl = doc.data["link"]
-    ));
+    privateChannel(recipId).receiveMessage(_schema.messageFromDocWith(doc, id));
+  }
+
+  _messageDeleted (Uuid uuid) {
+    // note: because a private message has the same id in the sent and received stores, we end up
+    // deleting both when either the sent or deleted message is deleted; then when the counterpart
+    // is deleted, there's nothing to delete; we're not going to work too hard to correct this
+    // because if you delete a private message, you should really delete both sides
+    for (final store in _privChannelStores.values) store.deleteMessage(uuid);
   }
 
   _saveDeviceToken (DocumentSnapshot user) {
@@ -540,6 +546,8 @@ class ChannelStore extends _ChannelStore with _$ChannelStore {
     }
   }
 
+  void deleteMessage (Uuid id) => messages.remove(id);
+
   void _didSendMessage (Message msg) {}
 
   @override String toString () => "Channel[id=$id, msgs=${messages.length}]";
@@ -606,7 +614,7 @@ class GameChannelStore extends ChannelStore {
             receiveMessage(_schema.messageFromDoc(change.document));
             break;
           case DocumentChangeType.removed:
-            print("TODO: message was removed? ${change.document}");
+            deleteMessage(Uuid.fromBase62(change.document.documentID));
             break;
         }
       }
