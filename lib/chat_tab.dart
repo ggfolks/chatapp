@@ -1,7 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_mobx/flutter_mobx.dart';
-import 'package:mobx/mobx.dart';
 
 import 'channel_page.dart';
 import 'data.dart';
@@ -16,33 +15,7 @@ class ChatContents extends StatefulWidget {
 }
 
 class _ChatContentsState extends State<ChatContents> {
-  _ChatContentsState(this.app) {
-    // if a channel notif is set, pop our navigator to the root then push the appropriate channel
-    autorun((_) {
-      print("Notif channel changed ${app.notifChannel}");
-      if (app.notifChannel != null) {
-        Future.delayed(const Duration(milliseconds: 500), () {
-          final channelId = app.notifChannel.channelId;
-          ChannelStore store;
-          if (app.notifChannel.type == ProfileType.channel) {
-            store = app.user.gameChannel(channelId);
-          } else if (app.notifChannel.type == ProfileType.person) {
-            store = app.user.privateChannel(channelId);
-          }
-          if (store != null) {
-            final route = pageRoute<void>(
-              title: app.profiles.profiles[store.id].name,
-              builder: (ctx) => ChannelPage(app, store)
-            );
-            // TODO: we may need to pop back to the root?
-            if (Navigator.canPop(context)) Navigator.of(context).pushReplacement(route);
-            else Navigator.of(context).push(route);
-          } else print("Unable to find channel store for ${app.notifChannel}");
-        });
-        app.notifChannel = null;
-      }
-    });
-  }
+  _ChatContentsState(this.app) {}
 
   final AppStore app;
   final rdfmt = RelativeDateFormatter();
@@ -85,6 +58,31 @@ class _ChatContentsState extends State<ChatContents> {
 
   @override Widget build (BuildContext ctx) {
     return Observer(builder: (ctx) {
+      // if a channel notif is set, pop our navigator to the root then push the appropriate channel
+      final nc = app.notifChannel;
+      if (nc != null) {
+        print("Notif channel changed ${nc}");
+        app.notifChannel = null;
+        Future.delayed(const Duration(milliseconds: 500), () {
+          final channelId = nc.channelId;
+          ChannelStore store;
+          if (nc.type == ProfileType.channel) {
+            store = app.user.gameChannel(channelId);
+          } else if (nc.type == ProfileType.person) {
+            store = app.user.privateChannel(channelId);
+          }
+          if (store != null) {
+            final route = pageRoute<void>(
+              title: app.profiles.profiles[store.id].name,
+              builder: (ctx) => ChannelPage(app, store)
+            );
+            // TODO: we may need to pop back to the root?
+            if (Navigator.canPop(context)) Navigator.of(context).pushReplacement(route);
+            else Navigator.of(context).push(route);
+          } else print("Unable to find channel store for ${nc}");
+        });
+      }
+
       // TODO: if channel data is not yet available, show a loading indicator?
       final slivers = List<Widget>();
       slivers.add(UI.makeHeader(ctx, "Channels"));
