@@ -26,7 +26,12 @@ void syncSetFrom<E> (ObservableSet<E> set, DocumentSnapshot snap, String propNam
                      Codec<E> elemCodec) {
   List<dynamic> sourceData = snap.data[propName];
   if (sourceData != null) {
-    for (var oelem in set) if (!sourceData.contains(elemCodec.encode(oelem))) set.remove(oelem);
+    List<E> toDelete = null;
+    for (var oelem in set) if (!sourceData.contains(elemCodec.encode(oelem))) {
+      if (toDelete == null) toDelete = new List();
+      toDelete.add(oelem);
+    }
+    if (toDelete != null) set.removeAll(toDelete);
     for (var elem in sourceData) set.add(elemCodec.decode(elem));
   }
 }
@@ -35,7 +40,12 @@ void syncMapFrom<K,V> (ObservableMap<K,V> map, DocumentSnapshot snap, String pro
                        Codec<K> keyCodec, Codec<V> valueCodec) {
   Map<dynamic, dynamic> sourceData = snap.data[propName];
   if (sourceData != null) {
-    for (K ok in map.keys) if (!sourceData.containsKey(keyCodec.encode(ok))) map.remove(ok);
+    List<K> toDelete = null;
+    for (K ok in map.keys) if (!sourceData.containsKey(keyCodec.encode(ok))) {
+      if (toDelete == null) toDelete = new List();
+      toDelete.add(ok);
+    }
+    if (toDelete != null) for (K dk in toDelete) map.remove(dk);
     sourceData.forEach((k, v) => map[keyCodec.decode(k)] = valueCodec.decode(v));
   }
 }
