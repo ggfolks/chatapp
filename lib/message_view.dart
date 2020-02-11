@@ -38,7 +38,7 @@ class MessageView extends StatelessWidget {
         padding: const EdgeInsets.only(top: 5),
         child: makeClickable(msg.linkUrl, Image.network(msg.imageUrl))
       ));
-      var style = Theme.of(ctx).textTheme.subhead;
+      var style = Theme.of(ctx).textTheme.subtitle1;
       if (msg.linkUrl != null) style = style.copyWith(decoration: TextDecoration.underline);
       contents.add(Container(
         padding: const EdgeInsets.only(top: 5),
@@ -46,10 +46,9 @@ class MessageView extends StatelessWidget {
       ));
     }
 
-    return Observer(builder: (ctx) {
-      app.profiles.resolveProfile(first.authorId);
+    return Observer(name: "messageView", builder: (ctx) {
       // print("Message ${first.uuid} from ${first.authorId}");
-      final sender = app.profiles.profiles[first.authorId];
+      final sender = app.profiles.getProfile(first.authorId);
       return Container(
         padding: const EdgeInsets.all(8),
         child: Row(
@@ -66,9 +65,10 @@ class MessageView extends StatelessWidget {
                   children: [
                     Container(
                       padding: const EdgeInsets.only(right: 8),
-                      child: Text(sender.name, style: Theme.of(ctx).textTheme.body2)
+                      child: Text(sender.name, style: Theme.of(ctx).textTheme.bodyText1)
                     ),
-                    Text(timeFormat.format(first.sentTime), style: Theme.of(ctx).textTheme.body1),
+                    Text(timeFormat.format(first.sentTime),
+                         style: Theme.of(ctx).textTheme.bodyText2),
                   ]
                 ),
                 ...contents

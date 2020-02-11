@@ -108,7 +108,7 @@ class _ChatAppState extends State<ChatApp> with WidgetsBindingObserver {
       //   tabBar: CupertinoTabBar(items: tabs.map((tab) => tab.navItem()).toList()),
       //   tabBuilder: (ctx, int index) => tabs[index].tabView(app),
       // )),
-      home: Observer(builder: (ctx) => Scaffold(
+      home: Observer(name: "Scaffold", builder: (ctx) => Scaffold(
         body: _tabView(app.selTabIdx),
         bottomNavigationBar: BottomNavigationBar(
           items: tabs.map((tab) => tab.navItem()).toList(),

@@ -19,7 +19,7 @@ class ChannelPage extends StatefulWidget {
 
 Widget titleView (BuildContext ctx, String title) => Container(
   padding: const EdgeInsets.only(top: 8, left: 8, right: 8),
-  child: Text(title, style: Theme.of(ctx).textTheme.title)
+  child: Text(title, style: Theme.of(ctx).textTheme.headline6)
 );
 
 Widget messagesList (AppStore app, ChannelStore channel, ScrollController scrollController) {
@@ -70,7 +70,7 @@ class _ChannelPageState extends State<ChannelPage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Colors.deepOrange,
-        title: Observer(builder: (ctx) => Text(app.profiles.name(channel.id))),
+        title: Observer(name: "channelName", builder: (ctx) => Text(app.profiles.name(channel.id))),
       ),
       body: Column(
         mainAxisAlignment: MainAxisAlignment.end,
@@ -80,9 +80,7 @@ class _ChannelPageState extends State<ChannelPage> {
           Expanded(child: MediaQuery.removePadding(
             removeTop: true,
             removeBottom: true,
-            context: ctx, child: Observer(
-              builder: (ctx) => messagesList(app, channel, scrollController)
-            )
+            context: ctx, child: messagesList(app, channel, scrollController)
           )),
           Container(
             padding: const EdgeInsets.only(left: 8, right: 8),

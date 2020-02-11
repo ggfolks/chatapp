@@ -1,6 +1,7 @@
 import "dart:async";
 import "dart:io";
 
+import 'package:flutter/scheduler.dart';
 import "package:cloud_firestore/cloud_firestore.dart";
 import "package:firebase_analytics/firebase_analytics.dart";
 import "package:firebase_analytics/observer.dart";
@@ -363,15 +364,17 @@ class ProfilesStore = _ProfilesStore with _$ProfilesStore;
 abstract class _ProfilesStore with Store {
   _ProfilesStore (this._schema, this._user) {
     reaction((_) => _user.id, (Uuid id) {
-      if (id != Uuid.zero) resolveProfile(id);
+      if (id != Uuid.zero) _resolveProfile(id);
     }, fireImmediately: true);
   }
 
   /// The profile that represents the authed user.
-  @computed Profile get self => profiles[_user.id] ?? unknownPerson;
+  @computed Profile get self => _profiles[_user.id] ?? unknownPerson;
+
+  final _resolving = Set<Uuid>();
 
   /// Resolved profile information.
-  final profiles = ObservableMap<Uuid, Profile>();
+  final _profiles = ObservableMap<Uuid, Profile>();
 
   /// Resolved channel information.
   final channels = ObservableMap<Uuid, Profile>();
@@ -380,7 +383,7 @@ abstract class _ProfilesStore with Store {
   final UserStore _user;
 
   /// Returns the name of the specified entity, or `?` if the entity is unknown.
-  String name (Uuid uuid) => profiles[uuid]?.name ?? unknownPerson.name;
+  String name (Uuid uuid) => _profiles[uuid]?.name ?? unknownPerson.name;
 
   /// Compares two profiled entities by their profile names.
   int compareNames (Profiled a, Profiled b) => name(a.profileId).compareTo(name(b.profileId));
@@ -388,29 +391,44 @@ abstract class _ProfilesStore with Store {
   /// Returns the ids of all resolved people profiles. NOTE: we have to operate using keys otherwise
   /// we won't get notifications from MobX about changes.
   @computed List<Profile> get people {
-    final ids = profiles.keys.where((k) => profiles[k].type == ProfileType.person);
-    return ids.map((id) => profiles[id]).toList()..sort((a, b) => a.name.compareTo(b.name));
+    final ids = _profiles.keys.where((k) => _profiles[k].type == ProfileType.person);
+    return ids.map((id) => _profiles[id]).toList()..sort((a, b) => a.name.compareTo(b.name));
+  }
+
+  Profile getProfile (Uuid id) {
+    final profile = _profiles[id];
+    if (profile != null) return profile;
+
+    final tempProfile = Profile(
+      (b) => b..uuid = id
+              ..type = ProfileType.pending
+              ..name = "..."
+              ..photo = "https://api.adorable.io/avatars/128/pending.png"
+    );
+    if (_resolving.add(id)) {
+      // we cannot modify _profiles here or mobx decides to notify every previous and subsequent
+      // observer of a particular profile that it needs to change even though it should ostensibly
+      // only bind to the specific key we're trying to resolve; I don't fucking know why
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _profiles[id] = tempProfile;
+        _resolveProfile(id);
+        _resolving.remove(id);
+      });
+    }
+    return tempProfile;
   }
 
   /// Requests that the profile for the specified user be resolved. A placeholder profile will
   /// become available immediately and will be replaced by the real profile data when it's
   /// available. It's OK to call this method repeatedly for the same profile id.
-  resolveProfile (Uuid id) async {
-    if (profiles.containsKey(id)) return;
-    // put a "pending" placeholder into the profiles map
-    profiles[id] = Profile(
-      (b) => b..uuid = id
-              ..type = ProfileType.pending
-              ..name = "..."
-              ..photo = "https://api.adorable.io/avatars/128/pending.png" // TODO
-    );
+  _resolveProfile (Uuid id) async {
     // TODO: maintain a set of queries so that we get profile updates?
     final prodoc = await _schema.profileRef(id).get();
     if (prodoc.exists) {
       try {
         final profile = _makeProfile(id, prodoc);
         print("Profile resolved $id / ${profile.name}");
-        profiles[id] = profile;
+        _profiles[id] = profile;
         if (profile.type == ProfileType.channel) channels[id] = profile;
       } catch (error) {
         print("Failed to decode profile $id: $prodoc");
@@ -427,7 +445,7 @@ abstract class _ProfilesStore with Store {
       where("type", isEqualTo: encodeProfileType(ProfileType.person)).getDocuments();
     for (final doc in people.documents) {
       final id = Uuid.fromBase62(doc.documentID);
-      profiles[id] = _makeProfile(id, doc);
+      _profiles[id] = _makeProfile(id, doc);
     }
   }
 
@@ -436,7 +454,7 @@ abstract class _ProfilesStore with Store {
       where("type", isEqualTo: encodeProfileType(ProfileType.channel)).getDocuments();
     for (final doc in result.documents) {
       final id = Uuid.fromBase62(doc.documentID);
-      profiles[id] = _makeProfile(id, doc);
+      _profiles[id] = _makeProfile(id, doc);
       channels[id] = _makeProfile(id, doc);
     }
   }

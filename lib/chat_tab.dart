@@ -24,18 +24,17 @@ class _ChatContentsState extends State<ChatContents> {
     channels.sort((a, b) => app.profiles.name(a.id).compareTo(app.profiles.name(b.id)));
     final rows = List<Widget>(), theme = Theme.of(ctx);
     channels.forEach((cs) {
-      app.profiles.resolveProfile(cs.id);
       rows.add(Container(
         padding: const EdgeInsets.all(8),
         child: GestureDetector(
           onTap: () => Navigator.of(ctx).push(
             pageRoute<void>(
-              title: app.profiles.profiles[cs.id].name,
+              title: app.profiles.getProfile(cs.id).name,
               builder: (ctx) => ChannelPage(app, cs)
             )
           ),
-          child: Observer(builder: (ctx) {
-            final profile = app.profiles.profiles[cs.id];
+          child: Observer(name: "channelList", builder: (ctx) {
+            final profile = app.profiles.getProfile(cs.id);
             return Row(children: [
               ProfileImage(profile),
               SizedBox(width: 5),
@@ -43,11 +42,11 @@ class _ChatContentsState extends State<ChatContents> {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Row(children: [
-                    Expanded(child: Text(profile.name, style: theme.textTheme.title)),
+                    Expanded(child: Text(profile.name, style: theme.textTheme.headline6)),
                     Text(cs.latest == null ? "" : rdfmt.formatLatest(cs.latest.sentTime)),
                   ]),
                   SizedBox(height: 5),
-                  Text(cs.latest == null ? "" : cs.latest.text, style: theme.textTheme.subhead),
+                  Text(cs.latest == null ? "" : cs.latest.text, style: theme.textTheme.subtitle1),
                 ]))
             ]);
           }))));
@@ -57,7 +56,7 @@ class _ChatContentsState extends State<ChatContents> {
   }
 
   @override Widget build (BuildContext ctx) {
-    return Observer(builder: (ctx) {
+    return Observer(name: "chatContents", builder: (ctx) {
       // if a channel notif is set, pop our navigator to the root then push the appropriate channel
       final nc = app.notifChannel;
       if (nc != null) {
@@ -73,7 +72,7 @@ class _ChatContentsState extends State<ChatContents> {
           }
           if (store != null) {
             final route = pageRoute<void>(
-              title: app.profiles.profiles[store.id].name,
+              title: app.profiles.getProfile(store.id).name,
               builder: (ctx) => ChannelPage(app, store)
             );
             // TODO: we may need to pop back to the root?

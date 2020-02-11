@@ -14,9 +14,8 @@ int friendCount (Map<Uuid, FriendStatus> friends, FriendStatus status) =>
 List<Widget> testUserRows (AppStore app) {
   final rows = List<Widget>();
   for (final id in app.debug.testers) {
-    app.profiles.resolveProfile(id);
     rows.add(Observer(builder: (ctx) {
-      final profile = app.profiles.profiles[id];
+      final profile = app.profiles.getProfile(id);
       final amTesting = app.user.id == id;
       return new ProfileRow(profile)..addIcon(
         amTesting ? CupertinoIcons.minus_circled : CupertinoIcons.plus_circled,
@@ -38,7 +37,7 @@ List<Widget> testChannelRows (AppStore app) {
   final rows = List<Widget>();
   for (final id in app.profiles.channels.keys) {
     rows.add(Observer(builder: (ctx) {
-      final profile = app.profiles.profiles[id];
+      final profile = app.profiles.getProfile(id);
       final amMember = app.user.channels.contains(id);
       return new ProfileRow(profile)..addIcon(
         amMember ? CupertinoIcons.minus_circled : CupertinoIcons.plus_circled,
