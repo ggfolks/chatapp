@@ -80,7 +80,7 @@ abstract class AuthedTab extends AppTab {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: <Widget>[
               Spacer(),
-              Text(unauthedMessage, textAlign: TextAlign.center, style: theme.textTheme.display1),
+              Text(unauthedMessage, textAlign: TextAlign.center, style: theme.textTheme.headline4),
               Spacer(),
               UI.header(theme, "Sign in:"),
               Container(
@@ -119,7 +119,7 @@ class UI {
     decoration: BoxDecoration(border: Border(
       bottom: BorderSide(width: 1.0, color: theme.dividerColor),
     )),
-    child: Text(text, textAlign: TextAlign.left, style: theme.textTheme.headline)
+    child: Text(text, textAlign: TextAlign.left, style: theme.textTheme.headline5)
   );
 
   static SliverPersistentHeader makeHeader (BuildContext ctx, String headerText) =>
